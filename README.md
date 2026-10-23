@@ -13,6 +13,18 @@ components: lexer/tokenizer, parser
 tools:
 
 - CLI: validate config, get value (inspect), list
+
+- Usage:
+  **Command-Line Grammar:**
+
+  ```
+  rconfig <SUBCOMMAND> [ARGS...]
+  ```
+
+  - `rconfig`: The CLI tool entry point
+  - `<SUBCOMMAND>`: Action to perform, such as `validate`, `get`, `list`
+  - `[ARGS...]`: Arguments required by the subcommand
+
 - APIs: expose public apis for external rust projects to make use of. Validate config, inspect, list
 
 3. .rcfg design

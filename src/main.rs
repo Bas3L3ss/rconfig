@@ -1,3 +1,10 @@
+use clap::Parser;
+use rconfig::{ Cli, Commands };
+
 fn main() {
-    println!("Hello, world!");
+    match Cli::parse().command {
+        Commands::List { path } => { todo!() }
+        Commands::Get { path, key } => { todo!() }
+        Commands::Validate { path } => { todo!() }
+    }
 }
