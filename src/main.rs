@@ -1,23 +1,15 @@
 use clap::Parser;
-use rconfig::{ Cli, Commands, file::open };
+use rconfig::{ Cli, Commands, commands::list };
 
 fn main() {
     match Cli::parse().command {
         Commands::List { path } => {
-            let contents = match open(&path) {
-                Ok(data) => data,
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    std::process::exit(1);
-                }
-            };
-
-            // tokenizing
-
-            // validating
-
-            // parsing
+            if let Err(e) = list(&path) {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
         }
+
         Commands::Get { path, key } => { todo!() }
         Commands::Validate { path } => { todo!() }
     }
