@@ -2,17 +2,13 @@ use std::io;
 
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum FileError {
-    #[error("Unknown file format: {0}")] NotRconfig(String),
+    #[error("Unsupported file extension: {0}")] UnsupportedExtension(String),
 
-    #[error("Failed to open file: {0}")] IoOpen(#[from] io::Error),
-
-    #[error("Not a valid file (may be a directory or unreadable format): {0}")] NotAFile(String),
-
-    #[error("File not found")]
-    NotFound,
-
-    #[error("Unknown file error")]
-    Unknown,
+    #[error("Failed to read file '{path}'")] Read {
+        path: String,
+        #[source]
+        source: io::Error,
+    },
 }
