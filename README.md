@@ -74,3 +74,5 @@ dev: proptest(randomized test), criterion(performance tracking), tracing (observ
 5. Future plan:
 
 - Add support for conversion to JSON, Toml, and XML
+- Add support for formatter, color (this can be a VS code extension as well)
+-
