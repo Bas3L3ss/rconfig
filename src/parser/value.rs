@@ -3,6 +3,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub enum Value<'a> {
     Float(f64),
+    Bool(bool),
     Int(usize),
     Signed(isize),
     String(&'a str),

@@ -7,6 +7,7 @@ pub fn list(path: &str) -> Result<(), FileError> {
 
     // Parsing
     let list = parse(&contents, &tokens);
+    dbg!(list);
     // Validating
     // Listing
 

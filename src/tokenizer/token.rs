@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Comment,
     Ident,
@@ -20,6 +20,7 @@ pub enum Token {
     WhiteSpace,
 
     Unknown,
+    EOF,
 }
 
 #[derive(Debug)]

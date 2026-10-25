@@ -57,6 +57,7 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
         };
         tokens.push(token);
     }
+    tokens.push(SpannedToken { kind: EOF, span: 0..0 });
 
     tokens
 }
@@ -80,9 +81,14 @@ fn tokenize_string<I>(start: usize, chars: &mut std::iter::Peekable<I>) -> Spann
     where I: Iterator<Item = (usize, char)>
 {
     use Token::*;
+    let mut first_char = true;
     let mut end = start + 1;
     let mut escape = false;
     while let Some(&(next_idx, next_ch)) = chars.peek() {
+        if first_char {
+            first_char = false;
+            continue;
+        }
         if escape {
             chars.next();
             end = next_idx + next_ch.len_utf8();
@@ -96,14 +102,13 @@ fn tokenize_string<I>(start: usize, chars: &mut std::iter::Peekable<I>) -> Spann
             continue;
         }
         if next_ch == '"' {
-            end = next_idx + 1;
             chars.next();
             break;
         }
         chars.next();
         end = next_idx + next_ch.len_utf8();
     }
-    SpannedToken { kind: String, span: start..end }
+    SpannedToken { kind: String, span: start + 1..end }
 }
 
 fn tokenize_run<I, F>(
