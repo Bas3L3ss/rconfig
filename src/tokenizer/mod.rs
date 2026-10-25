@@ -1,3 +1,5 @@
+#![allow(unused_parens)]
+
 pub mod token;
 pub use token::*;
 
