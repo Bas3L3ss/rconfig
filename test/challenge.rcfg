@@ -1,0 +1,59 @@
+# Application configuration
+# Tests comments, strings, booleans, numbers, arrays, and nested structs.
+
+app_name = "rconfig-demo"
+environment = "development"
+debug = true
+maintenance_mode = false
+
+# Integer and float values
+port = 8080
+max_connections = 250
+retry_count = -3
+temperature_offset = -12.5
+request_timeout = 2.5
+negative_threshold = -0.75
+
+# Strings with spaces and punctuation
+database_url = "postgres://localhost:5432/app_db"
+welcome_message = "Hello, developer!"
+empty_string = ""
+
+# Arrays
+features = ["logging", "metrics", "cache"]
+allowed_ports = [80, 443, 8080]
+feature_flags = [true, false, true]
+temperature_values = [-10, 0, 25, -3.5, 2.75]
+
+# Nested structs
+database {
+    host = "localhost"
+    port = 5432
+    username = "app_user"
+    password = "dev-password"
+
+    connection {
+        max_connections = 20
+        min_connections = 2
+        timeout = 5.5
+    }
+}
+
+logging {
+    level = "debug"
+    file = "logs/app.log"
+
+    rotation {
+        enabled = true
+        max_files = 7
+    }
+}
+
+# Comments after a struct and between settings
+cache {
+    enabled = true
+    ttl = 300
+} # Inline comment after closing brace
+
+# Final setting
+version = "1.0.0"

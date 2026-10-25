@@ -3,5 +3,12 @@
 app_name = "rconfig-demo"
 debug = true
 port = 8080
+timeout = 2.5
+
+database {
+    host = "localhost"
+    port = 5432
+    enabled = true
+} # Inline comment
 
 features = ["logging", "metrics", "cache"]

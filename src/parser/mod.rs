@@ -25,19 +25,30 @@ impl<'a> Parser<'a> {
         self.position < self.tokens.len() && self.tokens[self.position].kind != Token::EOF
     }
 
+    /// Top-level parser. Parses a block or struct body.
     pub fn parse(&mut self) -> HashMap<&'a str, Value<'a>> {
-        let mut list = HashMap::new();
-        while self.in_bounds() {
-            self.align_ident();
+        self.parse_block(Token::EOF, Token::EOF)
+    }
 
-            if !self.in_bounds() {
+    /// Generic function for parsing a block struct (delimited), allowing recursion in parse_struct.
+    /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
+    fn parse_block(&mut self, open_token: Token, end_token: Token) -> HashMap<&'a str, Value<'a>> {
+        let mut map = HashMap::new();
+
+        if open_token != Token::EOF && self.current().kind == open_token {
+            self.advance(1);
+        }
+
+        while self.in_bounds() && (end_token == Token::EOF || self.current().kind != end_token) {
+            self.skip_trivia();
+
+            if !self.in_bounds() || (end_token != Token::EOF && self.current().kind == end_token) {
                 break;
             }
 
             let key =
                 &self.source
                     [self.tokens[self.position].span.start..self.tokens[self.position].span.end];
-
             self.advance(1);
             self.skip_whitespace();
 
@@ -45,28 +56,38 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            match &self.tokens[self.position].kind {
+            match &self.current().kind {
                 Token::Equal => {
                     self.advance(1);
                     self.skip_whitespace();
-                    list.insert(key, self.expression());
+                    map.insert(key, self.expression());
                 }
                 Token::OpenBracket => {
+                    map.insert(key, self.parse_struct());
+                }
+                Token::Comment => {
                     self.advance(1);
                     self.skip_whitespace();
-                    list.insert(key, self.parse_struct());
                 }
                 d => {
-                    todo!("Incorrect asdasdas {d:?}");
+                    todo!("Unexpected token in struct: {d:?}");
                 }
             }
             self.skip_whitespace();
         }
-        list
+
+        if end_token != Token::EOF && self.in_bounds() && self.current().kind == end_token {
+            self.advance(1);
+        }
+
+        map
     }
 
     fn parse_struct(&mut self) -> Value<'a> {
-        todo!()
+        // Assume the { has just been seen (current() is OpenBracket).
+        // Delegate to parse_block, which handles recursively.
+        // parse_block will automatically advance past the OpenBracket and handle closing bracket.
+        Value::Struct(self.parse_block(Token::OpenBracket, Token::CloseBracket))
     }
 
     fn expression(&mut self) -> Value<'a> {
@@ -178,14 +199,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn align_ident(&mut self) {
+    fn skip_trivia(&mut self) {
         while self.in_bounds() {
-            match &self.current().kind {
-                Token::Ident => {
-                    break;
+            match self.current().kind {
+                Token::WhiteSpace | Token::Newline | Token::Comment => {
+                    self.advance(1);
                 }
                 _ => {
-                    self.advance(1);
+                    break;
                 }
             }
         }
