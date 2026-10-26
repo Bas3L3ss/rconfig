@@ -1,8 +1,6 @@
-use std::collections::HashMap;
+use crate::{ commands::Error, file::open, parser::{ List, parse }, tokenizer::tokenize };
 
-use crate::{ commands::Error, file::{ open }, parser::{ Value, parse }, tokenizer::tokenize };
-
-pub fn list(path: &str) -> Result<HashMap<String, Value>, Error> {
+pub fn list(path: &str) -> Result<List, Error> {
     let contents = open(path)?;
     let tokens = tokenize(&contents);
     let list = parse(&contents, &tokens)?;

@@ -1,11 +1,14 @@
 pub mod value;
 pub mod error;
+pub mod key;
 pub use error::*;
+pub use key::*;
 use std::collections::HashMap;
 
 pub use value::*;
 
 use crate::tokenizer::{ SpannedToken, Token };
+pub type List = HashMap<String, Value>;
 
 pub struct Parser<'a> {
     pub source: &'a str,
@@ -87,17 +90,23 @@ impl<'a> Parser<'a> {
             self.skip_whitespace();
         }
 
-        if end_token != Token::EOF && self.in_bounds() && self.current().kind == end_token {
-            self.advance(1);
+        if end_token != Token::EOF {
+            // && self.in_bounds() && self.current().kind == end_token
+            if self.in_bounds() {
+                if self.current().kind == end_token {
+                    self.advance(1);
+                } else {
+                    return Err(ParserError::UnterminatedStruct(Line(self.current().line)));
+                }
+            } else {
+                return Err(ParserError::UnterminatedStruct(Line(self.current().line)));
+            }
         }
 
         Ok(map)
     }
 
     fn parse_struct(&mut self) -> Result<Value, ParserError> {
-        // Assume the { has just been seen (current() is OpenBracket).
-        // Delegate to parse_block, which handles recursively.
-        // parse_block will automatically advance past the OpenBracket and handle closing bracket.
         Ok(Value::Struct(self.parse_block(Token::OpenBracket, Token::CloseBracket)?))
     }
 

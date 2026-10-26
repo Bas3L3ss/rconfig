@@ -24,11 +24,13 @@ pub enum ParserError {
 
     #[error("Expected an expression at line {1}, found `{0:?}`")] ExpectedExpression(Token, Line),
 
+    #[error("Duplicated key {0} at line {1} ")] DuplicatedKey(String, Line),
+
     #[error("Expected `{0:?}` at line {1}")] MissingToken(Token, Line),
 
-    #[error(
-        "Unterminated array at line {0}: expected `]` before the end of input"
-    )] UnterminatedArray(Line),
+    #[error("Unterminated array at line {0}: expected `]`")] UnterminatedArray(Line),
+
+    #[error("Unterminated struct at line {0}: expected `}}`")] UnterminatedStruct(Line),
 
     #[error("Unexpected end of file")] UnexpectedEof,
 
