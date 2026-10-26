@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
-#[derive(Debug)]
-pub enum Value<'a> {
+#[derive(Debug, Clone)]
+pub enum Value {
     Float(f64),
     Bool(bool),
     Int(usize),
     Signed(isize),
-    String(&'a str),
-    Struct(HashMap<&'a str, Value<'a>>), // Struct as key-value pairs
-    Vec(Vec<Value<'a>>),
+    String(String),
+    Struct(HashMap<String, Value>), // Struct as key-value pairs
+    Vec(Vec<Value>),
 }
 
-impl<'a> Value<'a> {
+impl Value {
     pub fn float(val: f64) -> Self {
         Value::Float(val)
     }
@@ -24,15 +24,15 @@ impl<'a> Value<'a> {
         Value::Signed(val)
     }
 
-    pub fn string(val: &'a str) -> Self {
-        Value::String(val)
+    pub fn string(val: impl Into<String>) -> Self {
+        Value::String(val.into())
     }
 
-    pub fn struct_fields(fields: HashMap<&'a str, Value<'a>>) -> Self {
+    pub fn struct_fields(fields: HashMap<String, Value>) -> Self {
         Value::Struct(fields)
     }
 
-    pub fn vec(vals: Vec<Value<'a>>) -> Self {
+    pub fn vec(vals: Vec<Value>) -> Self {
         Value::Vec(vals)
     }
 }

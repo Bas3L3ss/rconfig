@@ -1,12 +1,12 @@
-use crate::{ file::{ FileError, open }, parser::parse, tokenizer::tokenize };
+use std::collections::HashMap;
 
-pub fn list(path: &str) -> Result<(), FileError> {
+use crate::{ file::{ FileError, open }, parser::{ Value, parse }, tokenizer::tokenize };
+
+pub fn list(path: &str) -> Result<HashMap<String, Value>, FileError> {
     let contents = open(path)?;
     let tokens = tokenize(&contents);
     let list = parse(&contents, &tokens);
-
-    println!("{list:#?}");
-    Ok(())
+    Ok(list)
 }
 
 #[cfg(test)]
@@ -49,19 +49,19 @@ mod tests {
             "version",
         ];
 
-        for key in expected_top_keys.iter() {
+        for &key in expected_top_keys.iter() {
             assert!(top.contains_key(key), "Missing key: {}", key);
         }
 
         // Check nested struct `database`
         if let Some(Value::Struct(database)) = top.get("database") {
             let expected_db_keys = ["host", "port", "username", "password", "connection"];
-            for key in expected_db_keys.iter() {
+            for &key in expected_db_keys.iter() {
                 assert!(database.contains_key(key), "Missing database field: {}", key);
             }
             if let Some(Value::Struct(conn)) = database.get("connection") {
                 let expected_conn_keys = ["max_connections", "min_connections", "timeout"];
-                for key in expected_conn_keys.iter() {
+                for &key in expected_conn_keys.iter() {
                     assert!(conn.contains_key(key), "Missing connection field: {}", key);
                 }
             } else {
@@ -74,12 +74,12 @@ mod tests {
         // Check nested struct `logging`
         if let Some(Value::Struct(logging)) = top.get("logging") {
             let expected_logging_keys = ["level", "file", "rotation"];
-            for key in expected_logging_keys.iter() {
+            for &key in expected_logging_keys.iter() {
                 assert!(logging.contains_key(key), "Missing logging field: {}", key);
             }
             if let Some(Value::Struct(rotation)) = logging.get("rotation") {
                 let expected_rotation_keys = ["enabled", "max_files"];
-                for key in expected_rotation_keys.iter() {
+                for &key in expected_rotation_keys.iter() {
                     assert!(rotation.contains_key(key), "Missing rotation field: {}", key);
                 }
             } else {
@@ -92,7 +92,7 @@ mod tests {
         // Check nested struct `cache`
         if let Some(Value::Struct(cache)) = top.get("cache") {
             let expected_cache_keys = ["enabled", "ttl"];
-            for key in expected_cache_keys.iter() {
+            for &key in expected_cache_keys.iter() {
                 assert!(cache.contains_key(key), "Missing cache field: {}", key);
             }
         } else {

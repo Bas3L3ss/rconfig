@@ -26,13 +26,13 @@ impl<'a> Parser<'a> {
     }
 
     /// Top-level parser. Parses a block or struct body.
-    pub fn parse(&mut self) -> HashMap<&'a str, Value<'a>> {
+    pub fn parse(&mut self) -> HashMap<String, Value> {
         self.parse_block(Token::EOF, Token::EOF)
     }
 
     /// Generic function for parsing a block struct (delimited), allowing recursion in parse_struct.
     /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
-    fn parse_block(&mut self, open_token: Token, end_token: Token) -> HashMap<&'a str, Value<'a>> {
+    fn parse_block(&mut self, open_token: Token, end_token: Token) -> HashMap<String, Value> {
         let mut map = HashMap::new();
 
         if open_token != Token::EOF && self.current().kind == open_token {
@@ -47,8 +47,9 @@ impl<'a> Parser<'a> {
             }
 
             let key =
-                &self.source
-                    [self.tokens[self.position].span.start..self.tokens[self.position].span.end];
+                self.source[
+                    self.tokens[self.position].span.start..self.tokens[self.position].span.end
+                ].to_string();
             self.advance(1);
             self.skip_whitespace();
 
@@ -83,30 +84,31 @@ impl<'a> Parser<'a> {
         map
     }
 
-    fn parse_struct(&mut self) -> Value<'a> {
+    fn parse_struct(&mut self) -> Value {
         // Assume the { has just been seen (current() is OpenBracket).
         // Delegate to parse_block, which handles recursively.
         // parse_block will automatically advance past the OpenBracket and handle closing bracket.
         Value::Struct(self.parse_block(Token::OpenBracket, Token::CloseBracket))
     }
 
-    fn expression(&mut self) -> Value<'a> {
+    fn expression(&mut self) -> Value {
         if !self.in_bounds() {
             todo!("Unexpected EOF");
         }
         match self.current().kind {
             Token::String => {
                 let value = Value::String(
-                    &self.source[self.current().span.start..self.current().span.end]
+                    self.source[self.current().span.start..self.current().span.end].to_string()
                 );
                 self.advance(1);
                 value
             }
 
             Token::Ident => {
-                let ident = &self.source[self.current().span.start..self.current().span.end];
+                let ident =
+                    self.source[self.current().span.start..self.current().span.end].to_string();
 
-                match ident {
+                match ident.as_str() {
                     "true" => {
                         self.advance(1);
                         Value::Bool(true)
@@ -244,6 +246,6 @@ impl<'a> Parser<'a> {
 }
 
 // Add a free function for old interface compatibility, if desired
-pub fn parse<'a>(source: &'a str, tokens: &'a [SpannedToken]) -> HashMap<&'a str, Value<'a>> {
+pub fn parse<'a>(source: &'a str, tokens: &'a [SpannedToken]) -> HashMap<String, Value> {
     Parser::new(source, tokens).parse()
 }
