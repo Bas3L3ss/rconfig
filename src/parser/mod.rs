@@ -173,87 +173,25 @@ impl<'a> Parser<'a> {
                 }
             }
             Token::Number => {
-                let line = self.current()?.line;
-                if
-                    self.position + 2 < self.tokens.len() &&
-                    self.tokens[self.position + 1].kind == Token::Dot &&
-                    self.tokens[self.position + 2].kind == Token::Number
-                {
-                    let span_start = self.current()?.span.start;
-                    let span_end = self.tokens[self.position + 2].span.end;
-                    let float_str = &self.source[span_start..span_end];
-                    self.advance(3);
-
-                    return Ok(
-                        Value::Float(
-                            float_str.parse::<f64>().map_err(|_| ParserError::InvalidNumber {
-                                value: float_str.to_string(),
-                                line,
-                            })?
-                        )
-                    );
-                }
-
-                let int_str = &self.source[self.current()?.span.start..self.current()?.span.end];
+                let token = self.current()?;
+                let line = token.line;
+                let lexeme = &self.source[token.span.start..token.span.end];
                 self.advance(1);
 
-                return Ok(
-                    Value::Int(
-                        int_str.parse::<usize>().map_err(|_| ParserError::InvalidNumber {
-                            value: int_str.to_string(),
+                if lexeme.contains('.') {
+                    Ok(Value::Float(lexeme.parse::<f64>().map_err(|_| {
+                        ParserError::InvalidNumber {
+                            value: lexeme.to_string(),
                             line,
-                        })?
-                    )
-                );
-            }
-            Token::Minus => {
-                let line = self.current()?.line;
-
-                if
-                    self.position + 1 < self.tokens.len() &&
-                    self.tokens[self.position + 1].kind == Token::Number
-                {
-                    if
-                        self.position + 3 < self.tokens.len() &&
-                        self.tokens[self.position + 2].kind == Token::Dot &&
-                        self.tokens[self.position + 3].kind == Token::Number
-                    {
-                        let span_start = self.current()?.span.start;
-                        let span_end = self.tokens[self.position + 3].span.end;
-                        let float_str = &self.source[span_start..span_end];
-                        self.advance(4);
-
-                        return Ok(
-                            Value::Float(
-                                float_str.parse::<f64>().map_err(|_| ParserError::InvalidNumber {
-                                    value: float_str.to_string(),
-                                    line,
-                                })?
-                            )
-                        );
-                    }
-
-                    let span_start = self.current()?.span.start; // minus
-                    self.advance(1);
-                    let span_end = self.current()?.span.end; // number
-                    let int_str = &self.source[span_start..span_end];
-                    self.advance(1);
-                    return Ok(
-                        Value::Signed(
-                            int_str.parse::<isize>().map_err(|_| ParserError::InvalidNumber {
-                                value: int_str.to_string(),
-                                line,
-                            })?
-                        )
-                    );
+                        }
+                    })?))
                 } else {
-                    return Err(ParserError::InvalidSigned {
-                        found: self.tokens
-                            .get(self.position + 1)
-                            .map(|token| format!("{:?}", token.kind))
-                            .unwrap_or_else(|| "nothing".to_string()),
-                        line,
-                    });
+                    Ok(Value::Int(lexeme.parse::<i64>().map_err(|_| {
+                        ParserError::InvalidNumber {
+                            value: lexeme.to_string(),
+                            line,
+                        }
+                    })?))
                 }
             }
 

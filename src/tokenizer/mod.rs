@@ -22,8 +22,7 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
                     Ident,
                     line
                 ),
-            ch if ch.is_ascii_digit() =>
-                tokenize_run(start, ch, &mut chars, |c| c.is_ascii_digit(), Number, line),
+            ch if ch.is_ascii_digit() => tokenize_number(start, ch, &mut chars, line),
             '\r' =>
                 match chars.peek() {
                     Some(&(next_idx, '\n')) => {
@@ -64,8 +63,19 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
             ']' => SpannedToken { kind: CloseSquare, span: start..start + 1, line },
             '{' => SpannedToken { kind: OpenBracket, span: start..start + 1, line },
             '}' => SpannedToken { kind: CloseBracket, span: start..start + 1, line },
-            '-' => SpannedToken { kind: Minus, span: start..start + 1, line },
-            '.' => SpannedToken { kind: Dot, span: start..start + 1, line },
+            '-' =>
+                match chars.peek() {
+                    Some(&(_, next_ch)) if next_ch.is_ascii_digit() || next_ch == '.' =>
+                        tokenize_number(start, ch, &mut chars, line),
+                    _ => SpannedToken { kind: Minus, span: start..start + 1, line },
+                }
+            '.' => {
+                match chars.peek() {
+                    Some(&(_, next_ch)) if next_ch.is_ascii_digit() =>
+                        tokenize_number(start, ch, &mut chars, line),
+                    _ => SpannedToken { kind: Dot, span: start..start + 1, line },
+                }
+            }
             _ => SpannedToken { kind: Unknown, span: start..start + ch.len_utf8(), line },
         };
         tokens.push(token);
@@ -73,6 +83,48 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
     tokens.push(SpannedToken { kind: EOF, span: 0..0, line });
 
     tokens
+}
+
+fn tokenize_number<I>(
+    start: usize,
+    first: char,
+    chars: &mut std::iter::Peekable<I>,
+    line: usize
+) -> SpannedToken
+    where I: Iterator<Item = (usize, char)> + Clone
+{
+    use Token::*;
+    let mut end = start + first.len_utf8();
+
+    while let Some(&(next_idx, next_ch)) = chars.peek() {
+        if !next_ch.is_ascii_digit() {
+            break;
+        }
+        chars.next();
+        end = next_idx + next_ch.len_utf8();
+    }
+
+    let has_fraction =
+        matches!(chars.peek(), Some(&(_, '.'))) &&
+        ({
+            let mut lookahead = chars.clone();
+            lookahead.next();
+            matches!(lookahead.peek(), Some(&(_, ch)) if ch.is_ascii_digit() || ch.is_whitespace())
+        });
+
+    if has_fraction {
+        let (dot_idx, _) = chars.next().unwrap();
+        end = dot_idx + 1;
+        while let Some(&(next_idx, next_ch)) = chars.peek() {
+            if !next_ch.is_ascii_digit() {
+                break;
+            }
+            chars.next();
+            end = next_idx + next_ch.len_utf8();
+        }
+    }
+
+    SpannedToken { kind: Number, span: start..end, line }
 }
 
 fn tokenize_comment<I>(

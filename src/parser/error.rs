@@ -5,7 +5,7 @@ use crate::tokenizer::Token;
 #[derive(Debug, Error, PartialEq)]
 pub enum ParserError {
     #[error(
-        "Unexpected token at line {line}: expected {expected:?} found `{found:?}`"
+        "Unexpected token at line {line}: expected {expected:?} found {found:?}"
     )] UnexpectedToken {
         found: Token,
         expected: Token,
@@ -43,11 +43,6 @@ pub enum ParserError {
 
     #[error("Invalid number at line {line}: `{value}` is not a valid number")] InvalidNumber {
         value: String,
-        line: usize,
-    },
-
-    #[error("Expected a number after `-` at line {line} found `{found}`")] InvalidSigned {
-        found: String,
         line: usize,
     },
 }
