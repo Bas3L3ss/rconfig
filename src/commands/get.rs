@@ -1,9 +1,9 @@
-use crate::{ file::{ FileError, open }, parser::{ Value, parse }, tokenizer::tokenize };
+use crate::{ commands::Error, file::{ open }, parser::{ Value, parse }, tokenizer::tokenize };
 
-pub fn get(path: &str, search: &str) -> Result<Option<Value>, FileError> {
+pub fn get(path: &str, search: &str) -> Result<Option<Value>, Error> {
     let contents = open(path)?;
     let tokens = tokenize(&contents);
-    let list = parse(&contents, &tokens);
+    let list = parse(&contents, &tokens).unwrap(); // TODO:Handle unwrap
     let keys: Vec<&str> = search.split('.').collect();
 
     if keys.len() == 1 {

@@ -1,11 +1,9 @@
-use std::collections::HashMap;
+use crate::{ commands::Error, file::open, parser::{ List, parse }, tokenizer::tokenize };
 
-use crate::{ file::{ FileError, open }, parser::{ Value, parse }, tokenizer::tokenize };
-
-pub fn list(path: &str) -> Result<HashMap<String, Value>, FileError> {
+pub fn list(path: &str) -> Result<List, Error> {
     let contents = open(path)?;
     let tokens = tokenize(&contents);
-    let list = parse(&contents, &tokens);
+    let list = parse(&contents, &tokens)?;
     Ok(list)
 }
 
@@ -19,7 +17,7 @@ mod tests {
         let fixture_path = "fixtures/challenge.rcfg";
         let contents = open(fixture_path).expect("fixture should open");
         let tokens = tokenize(&contents);
-        let list = parse(&contents, &tokens);
+        let list = parse(&contents, &tokens).unwrap();
 
         // The outermost value should be a struct (HashMap)
         let top = &list;

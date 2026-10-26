@@ -1,5 +1,5 @@
 use clap::Parser;
-use rconfig::{ Cli, Commands, commands::{ get, list } };
+use rconfig::{ Cli, Commands, commands::{ Error, get, list } };
 
 fn main() {
     match Cli::parse().command {
@@ -8,8 +8,12 @@ fn main() {
                 Ok(result) => {
                     println!("{result:#?}");
                 }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
+                Err(Error::File(e)) => {
+                    eprintln!("File error: {e}");
+                    std::process::exit(1);
+                }
+                Err(Error::Parser(e)) => {
+                    eprintln!("Syntax error: {e}");
                     std::process::exit(1);
                 }
             }
@@ -26,12 +30,15 @@ fn main() {
                         }
                     }
                 }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
+                Err(Error::File(e)) => {
+                    eprintln!("File error: {e}");
+                    std::process::exit(1);
+                }
+                Err(Error::Parser(e)) => {
+                    eprintln!("Syntax error: {e}");
                     std::process::exit(1);
                 }
             }
         }
-        Commands::Validate { path } => { todo!() }
     }
 }
