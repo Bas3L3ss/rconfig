@@ -1,16 +1,6 @@
-use std::fmt;
 use thiserror::Error;
 
 use crate::tokenizer::Token;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Line(pub usize);
-
-impl fmt::Display for Line {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 #[derive(Debug, Error, PartialEq)]
 pub enum ParserError {
@@ -19,22 +9,45 @@ pub enum ParserError {
     )] UnexpectedToken {
         found: Token,
         expected: Token,
-        line: Line,
+        line: usize,
     },
 
-    #[error("Expected an expression at line {1}, found `{0:?}`")] ExpectedExpression(Token, Line),
+    #[error("Expected an expression at line {line}, found `{found:?}`")] ExpectedExpression {
+        found: Token,
+        line: usize,
+    },
 
-    #[error("Duplicated key {0} at line {1} ")] DuplicatedKey(String, Line),
+    #[error(
+        "Duplicate key `{key}` at line {line}; first defined at line {first_line}"
+    )] DuplicatedKey {
+        key: String,
+        line: usize,
+        first_line: usize,
+    },
 
-    #[error("Expected `{0:?}` at line {1}")] MissingToken(Token, Line),
+    #[error("Expected `{expected:?}` at line {line}")] MissingToken {
+        expected: Token,
+        line: usize,
+    },
 
-    #[error("Unterminated array at line {0}: expected `]`")] UnterminatedArray(Line),
+    #[error("Unterminated array at line {line}: expected `]`")] UnterminatedArray {
+        line: usize,
+    },
 
-    #[error("Unterminated struct at line {0}: expected `}}`")] UnterminatedStruct(Line),
+    #[error("Unterminated struct at line {line}: expected `}}`")] UnterminatedStruct {
+        line: usize,
+    },
 
-    #[error("Unexpected end of file")] UnexpectedEof,
+    #[error("Unexpected end of file")]
+    UnexpectedEof,
 
-    #[error("Invalid number at line {1}: `{0}` is not a valid number")] InvalidNumber(String, Line),
+    #[error("Invalid number at line {line}: `{value}` is not a valid number")] InvalidNumber {
+        value: String,
+        line: usize,
+    },
 
-    #[error("Expected a number after `-` at line {1}, found `{0}`")] InvalidSigned(String, Line),
+    #[error("Expected a number after `-` at line {line}, found `{found}`")] InvalidSigned {
+        found: String,
+        line: usize,
+    },
 }

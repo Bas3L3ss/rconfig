@@ -1,14 +1,15 @@
 pub mod value;
 pub mod error;
-pub mod key;
 pub use error::*;
-pub use key::*;
 use std::collections::HashMap;
 
 pub use value::*;
 
 use crate::tokenizer::{ SpannedToken, Token };
+pub struct Line(usize);
+
 pub type List = HashMap<String, Value>;
+pub type LineList = HashMap<String, Line>;
 
 pub struct Parser<'a> {
     pub source: &'a str,
@@ -31,18 +32,15 @@ impl<'a> Parser<'a> {
     }
 
     /// Top-level parser. Parses a block or struct body.
-    pub fn parse(&mut self) -> Result<HashMap<String, Value>, ParserError> {
+    pub fn parse(&mut self) -> Result<List, ParserError> {
         self.parse_block(Token::EOF, Token::EOF)
     }
 
     /// Generic function for parsing a block struct (delimited), allowing recursion in parse_struct.
     /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
-    fn parse_block(
-        &mut self,
-        open_token: Token,
-        end_token: Token
-    ) -> Result<HashMap<String, Value>, ParserError> {
+    fn parse_block(&mut self, open_token: Token, end_token: Token) -> Result<List, ParserError> {
         let mut map = HashMap::new();
+        let mut linemap = HashMap::new();
 
         if open_token != Token::EOF && self.current().kind == open_token {
             self.advance(1);
@@ -70,10 +68,35 @@ impl<'a> Parser<'a> {
                 Token::Equal => {
                     self.advance(1);
                     self.skip_whitespace();
-                    map.insert(key, self.expression()?);
+
+                    match linemap.insert(key.clone(), self.current().line) {
+                        None => {
+                            map.insert(key, self.expression()?);
+                            continue;
+                        }
+                        Some(first_line) => {
+                            return Err(ParserError::DuplicatedKey {
+                                key: key,
+                                line: self.current().line,
+                                first_line,
+                            });
+                        }
+                    }
                 }
                 Token::OpenBracket => {
-                    map.insert(key, self.parse_struct()?);
+                    match linemap.insert(key.clone(), self.current().line) {
+                        None => {
+                            map.insert(key, self.parse_struct()?);
+                            continue;
+                        }
+                        Some(first_line) => {
+                            return Err(ParserError::DuplicatedKey {
+                                key: key,
+                                line: self.current().line,
+                                first_line,
+                            });
+                        }
+                    }
                 }
                 Token::Comment => {
                     self.advance(1);
@@ -83,7 +106,7 @@ impl<'a> Parser<'a> {
                     return Err(ParserError::UnexpectedToken {
                         found: *t,
                         expected: Token::Equal,
-                        line: Line(self.current().line),
+                        line: self.current().line,
                     });
                 }
             }
@@ -91,15 +114,18 @@ impl<'a> Parser<'a> {
         }
 
         if end_token != Token::EOF {
-            // && self.in_bounds() && self.current().kind == end_token
             if self.in_bounds() {
                 if self.current().kind == end_token {
                     self.advance(1);
                 } else {
-                    return Err(ParserError::UnterminatedStruct(Line(self.current().line)));
+                    return Err(ParserError::UnterminatedStruct {
+                        line: self.current().line,
+                    });
                 }
             } else {
-                return Err(ParserError::UnterminatedStruct(Line(self.current().line)));
+                return Err(ParserError::UnterminatedStruct {
+                    line: self.current().line,
+                });
             }
         }
 
@@ -155,14 +181,10 @@ impl<'a> Parser<'a> {
 
                     return Ok(
                         Value::Float(
-                            float_str
-                                .parse::<f64>()
-                                .map_err(|_|
-                                    ParserError::InvalidNumber(
-                                        float_str.to_string(),
-                                        Line(self.current().line)
-                                    )
-                                )?
+                            float_str.parse::<f64>().map_err(|_| ParserError::InvalidNumber {
+                                value: float_str.to_string(),
+                                line: self.current().line,
+                            })?
                         )
                     );
                 }
@@ -172,14 +194,10 @@ impl<'a> Parser<'a> {
 
                 return Ok(
                     Value::Int(
-                        int_str
-                            .parse::<usize>()
-                            .map_err(|_|
-                                ParserError::InvalidNumber(
-                                    int_str.to_string(),
-                                    Line(self.current().line)
-                                )
-                            )?
+                        int_str.parse::<usize>().map_err(|_| ParserError::InvalidNumber {
+                            value: int_str.to_string(),
+                            line: self.current().line,
+                        })?
                     )
                 );
             }
@@ -200,14 +218,10 @@ impl<'a> Parser<'a> {
 
                         return Ok(
                             Value::Float(
-                                float_str
-                                    .parse::<f64>()
-                                    .map_err(|_|
-                                        ParserError::InvalidNumber(
-                                            float_str.to_string(),
-                                            Line(self.current().line)
-                                        )
-                                    )?
+                                float_str.parse::<f64>().map_err(|_| ParserError::InvalidNumber {
+                                    value: float_str.to_string(),
+                                    line: self.current().line,
+                                })?
                             )
                         );
                     }
@@ -219,26 +233,20 @@ impl<'a> Parser<'a> {
                     self.advance(1);
                     return Ok(
                         Value::Signed(
-                            int_str
-                                .parse::<isize>()
-                                .map_err(|_|
-                                    ParserError::InvalidNumber(
-                                        int_str.to_string(),
-                                        Line(self.current().line)
-                                    )
-                                )?
+                            int_str.parse::<isize>().map_err(|_| ParserError::InvalidNumber {
+                                value: int_str.to_string(),
+                                line: self.current().line,
+                            })?
                         )
                     );
                 } else {
-                    return Err(
-                        ParserError::InvalidSigned(
-                            self.tokens
-                                .get(self.position + 1)
-                                .map(|token| format!("{:?}", token.kind))
-                                .unwrap_or_else(|| "nothing".to_string()),
-                            Line(self.current().line)
-                        )
-                    );
+                    return Err(ParserError::InvalidSigned {
+                        found: self.tokens
+                            .get(self.position + 1)
+                            .map(|token| format!("{:?}", token.kind))
+                            .unwrap_or_else(|| "nothing".to_string()),
+                        line: self.current().line,
+                    });
                 }
             }
 
@@ -267,17 +275,19 @@ impl<'a> Parser<'a> {
                                     return Err(ParserError::UnexpectedToken {
                                         found: t.kind,
                                         expected: Token::Comma,
-                                        line: Line(self.current().line),
+                                        line: self.current().line,
                                     });
                                 }
                                 None => {
-                                    return Err(
-                                        ParserError::UnterminatedArray(Line(self.current().line))
-                                    );
+                                    return Err(ParserError::UnterminatedArray {
+                                        line: self.current().line,
+                                    });
                                 }
                             }
                         } else {
-                            return Err(ParserError::UnterminatedArray(Line(self.current().line)));
+                            return Err(ParserError::UnterminatedArray {
+                                line: self.current().line,
+                            });
                         }
                     }
                     self.skip_whitespace();
@@ -287,7 +297,10 @@ impl<'a> Parser<'a> {
                 return Ok(Value::Vec(vec));
             }
             t => {
-                return Err(ParserError::ExpectedExpression(t, Line(self.current().line)));
+                return Err(ParserError::ExpectedExpression {
+                    found: t,
+                    line: self.current().line,
+                });
             }
         }
     }
@@ -337,9 +350,6 @@ impl<'a> Parser<'a> {
 }
 
 // Add a free function for old interface compatibility, if desired
-pub fn parse<'a>(
-    source: &'a str,
-    tokens: &'a [SpannedToken]
-) -> Result<HashMap<String, Value>, ParserError> {
+pub fn parse<'a>(source: &'a str, tokens: &'a [SpannedToken]) -> Result<List, ParserError> {
     Parser::new(source, tokens).parse()
 }
