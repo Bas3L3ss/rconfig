@@ -22,7 +22,7 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
                     Ident,
                     line
                 ),
-            ch if ch.is_ascii_digit() => tokenize_number(start, ch, &mut chars, line),
+            ch if ch.is_ascii_digit() => tokenize_number(start, ch, &mut chars, line, false),
             '\r' =>
                 match chars.peek() {
                     Some(&(next_idx, '\n')) => {
@@ -66,13 +66,13 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
             '-' =>
                 match chars.peek() {
                     Some(&(_, next_ch)) if next_ch.is_ascii_digit() || next_ch == '.' =>
-                        tokenize_number(start, ch, &mut chars, line),
+                        tokenize_number(start, ch, &mut chars, line, false),
                     _ => SpannedToken { kind: Minus, span: start..start + 1, line },
                 }
             '.' => {
                 match chars.peek() {
                     Some(&(_, next_ch)) if next_ch.is_ascii_digit() =>
-                        tokenize_number(start, ch, &mut chars, line),
+                        tokenize_number(start, ch, &mut chars, line, true),
                     _ => SpannedToken { kind: Dot, span: start..start + 1, line },
                 }
             }
@@ -89,7 +89,8 @@ fn tokenize_number<I>(
     start: usize,
     first: char,
     chars: &mut std::iter::Peekable<I>,
-    line: usize
+    line: usize,
+    is_dot_before: bool
 ) -> SpannedToken
     where I: Iterator<Item = (usize, char)> + Clone
 {
@@ -104,15 +105,16 @@ fn tokenize_number<I>(
         end = next_idx + next_ch.len_utf8();
     }
 
-    let has_fraction =
+    if is_dot_before {
+        SpannedToken { kind: Float, span: start..end, line }
+    } else if
         matches!(chars.peek(), Some(&(_, '.'))) &&
         ({
             let mut lookahead = chars.clone();
             lookahead.next();
             matches!(lookahead.peek(), Some(&(_, ch)) if ch.is_ascii_digit() || ch.is_whitespace())
-        });
-
-    if has_fraction {
+        })
+    {
         let (dot_idx, _) = chars.next().unwrap();
         end = dot_idx + 1;
         while let Some(&(next_idx, next_ch)) = chars.peek() {
@@ -122,9 +124,10 @@ fn tokenize_number<I>(
             chars.next();
             end = next_idx + next_ch.len_utf8();
         }
+        SpannedToken { kind: Float, span: start..end, line }
+    } else {
+        SpannedToken { kind: Number, span: start..end, line }
     }
-
-    SpannedToken { kind: Number, span: start..end, line }
 }
 
 fn tokenize_comment<I>(

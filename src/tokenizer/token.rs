@@ -7,6 +7,7 @@ pub enum Token {
     Ident,
     String,
     Number,
+    Float,
 
     Equal,
     OpenSquare,
@@ -31,6 +32,7 @@ impl fmt::Debug for Token {
             Token::Ident => "identifier",
             Token::String => "string",
             Token::Number => "number",
+            Token::Float => "float",
             Token::Equal => "`=`",
             Token::OpenSquare => "`[`",
             Token::CloseSquare => "`]`",

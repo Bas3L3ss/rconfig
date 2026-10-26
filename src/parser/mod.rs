@@ -178,21 +178,34 @@ impl<'a> Parser<'a> {
                 let lexeme = &self.source[token.span.start..token.span.end];
                 self.advance(1);
 
-                if lexeme.contains('.') {
-                    Ok(Value::Float(lexeme.parse::<f64>().map_err(|_| {
-                        ParserError::InvalidNumber {
-                            value: lexeme.to_string(),
-                            line,
-                        }
-                    })?))
-                } else {
-                    Ok(Value::Int(lexeme.parse::<i64>().map_err(|_| {
-                        ParserError::InvalidNumber {
-                            value: lexeme.to_string(),
-                            line,
-                        }
-                    })?))
-                }
+                Ok(
+                    Value::Int(
+                        lexeme.parse::<i64>().map_err(|_| {
+                            ParserError::InvalidNumber {
+                                value: lexeme.to_string(),
+                                line,
+                            }
+                        })?
+                    )
+                )
+            }
+
+            Token::Float => {
+                let token = self.current()?;
+                let line = token.line;
+                let lexeme = &self.source[token.span.start..token.span.end];
+                self.advance(1);
+
+                Ok(
+                    Value::Float(
+                        lexeme.parse::<f64>().map_err(|_| {
+                            ParserError::InvalidNumber {
+                                value: lexeme.to_string(),
+                                line,
+                            }
+                        })?
+                    )
+                )
             }
 
             Token::OpenSquare => {
