@@ -5,27 +5,27 @@ use crate::tokenizer::Token;
 #[derive(Debug, Error, PartialEq)]
 pub enum ParserError {
     #[error(
-        "Unexpected token at line {line}: expected `{expected:?}`, found `{found:?}`"
+        "Unexpected token at line {line}: expected {expected:?} found `{found:?}`"
     )] UnexpectedToken {
         found: Token,
         expected: Token,
         line: usize,
     },
 
-    #[error("Expected an expression at line {line}, found `{found:?}`")] ExpectedExpression {
+    #[error("Expected an expression at line {line} found {found:?}")] ExpectedExpression {
         found: Token,
         line: usize,
     },
 
     #[error(
-        "Duplicate key `{key}` at line {line}; first defined at line {first_line}"
+        "Duplicate key `{key}` at line {line}, first defined at line {first_line}"
     )] DuplicatedKey {
         key: String,
         line: usize,
         first_line: usize,
     },
 
-    #[error("Expected `{expected:?}` at line {line}")] MissingToken {
+    #[error("Expected {expected:?} at line {line}")] MissingToken {
         expected: Token,
         line: usize,
     },
@@ -46,7 +46,7 @@ pub enum ParserError {
         line: usize,
     },
 
-    #[error("Expected a number after `-` at line {line}, found `{found}`")] InvalidSigned {
+    #[error("Expected a number after `-` at line {line} found `{found}`")] InvalidSigned {
         found: String,
         line: usize,
     },

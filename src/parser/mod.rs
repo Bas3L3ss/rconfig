@@ -6,10 +6,8 @@ use std::collections::HashMap;
 pub use value::*;
 
 use crate::tokenizer::{ SpannedToken, Token };
-pub struct Line(usize);
 
 pub type List = HashMap<String, Value>;
-pub type LineList = HashMap<String, Line>;
 
 pub struct Parser<'a> {
     pub source: &'a str,
@@ -26,11 +24,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Helper to check if current position is within tokens and not EOF
-    fn in_bounds(&self) -> bool {
-        self.position < self.tokens.len() && self.tokens[self.position].kind != Token::EOF
-    }
-
     /// Top-level parser. Parses a block or struct body.
     pub fn parse(&mut self) -> Result<List, ParserError> {
         self.parse_block(Token::EOF, Token::EOF)
@@ -42,89 +35,98 @@ impl<'a> Parser<'a> {
         let mut map = HashMap::new();
         let mut linemap = HashMap::new();
 
-        if open_token != Token::EOF && self.current().kind == open_token {
+        if open_token != Token::EOF && self.current()?.kind == open_token {
             self.advance(1);
         }
 
-        while self.in_bounds() && (end_token == Token::EOF || self.current().kind != end_token) {
-            self.skip_trivia();
+        while self.in_bounds() && (end_token == Token::EOF || self.current()?.kind != end_token) {
+            self.skip_trivia()?;
 
-            if !self.in_bounds() || (end_token != Token::EOF && self.current().kind == end_token) {
+            if !self.in_bounds() || (end_token != Token::EOF && self.current()?.kind == end_token) {
                 break;
             }
 
-            let key =
-                self.source[
-                    self.tokens[self.position].span.start..self.tokens[self.position].span.end
-                ].to_string();
+            let key = match self.current()?.kind {
+                Token::Ident => {
+                    self.source[self.current()?.span.start..self.current()?.span.end].to_string()
+                }
+                t => {
+                    return Err(ParserError::UnexpectedToken {
+                        found: t,
+                        expected: Token::Ident,
+                        line: self.current()?.line,
+                    });
+                }
+            };
+            let line = self.current()?.line;
+
             self.advance(1);
-            self.skip_whitespace();
+            self.skip_whitespace()?;
 
             if !self.in_bounds() {
-                break;
+                return Err(ParserError::UnexpectedToken {
+                    found: Token::EOF,
+                    expected: Token::Equal,
+                    line: self.current()?.line,
+                });
             }
 
-            match &self.current().kind {
+            match &self.current()?.kind {
                 Token::Equal => {
                     self.advance(1);
-                    self.skip_whitespace();
+                    self.skip_whitespace()?;
 
-                    match linemap.insert(key.clone(), self.current().line) {
+                    match linemap.insert(key.clone(), self.current()?.line) {
                         None => {
                             map.insert(key, self.expression()?);
-                            continue;
                         }
                         Some(first_line) => {
                             return Err(ParserError::DuplicatedKey {
                                 key: key,
-                                line: self.current().line,
+                                line,
                                 first_line,
                             });
                         }
                     }
                 }
                 Token::OpenBracket => {
-                    match linemap.insert(key.clone(), self.current().line) {
+                    match linemap.insert(key.clone(), self.current()?.line) {
                         None => {
                             map.insert(key, self.parse_struct()?);
-                            continue;
                         }
                         Some(first_line) => {
                             return Err(ParserError::DuplicatedKey {
                                 key: key,
-                                line: self.current().line,
+                                line,
                                 first_line,
                             });
                         }
                     }
                 }
-                Token::Comment => {
-                    self.advance(1);
-                    self.skip_whitespace();
-                }
+
                 t => {
                     return Err(ParserError::UnexpectedToken {
                         found: *t,
                         expected: Token::Equal,
-                        line: self.current().line,
+                        line: self.current()?.line,
                     });
                 }
             }
-            self.skip_whitespace();
+            self.skip_whitespace()?;
         }
 
         if end_token != Token::EOF {
             if self.in_bounds() {
-                if self.current().kind == end_token {
+                if self.current()?.kind == end_token {
                     self.advance(1);
                 } else {
                     return Err(ParserError::UnterminatedStruct {
-                        line: self.current().line,
+                        line: self.current()?.line,
                     });
                 }
             } else {
                 return Err(ParserError::UnterminatedStruct {
-                    line: self.current().line,
+                    line: self.current()?.line,
                 });
             }
         }
@@ -140,17 +142,17 @@ impl<'a> Parser<'a> {
         if !self.in_bounds() {
             return Err(ParserError::UnexpectedEof);
         }
-        match self.current().kind {
+        match self.current()?.kind {
             Token::String => {
                 let value = Value::String(
-                    self.source[self.current().span.start..self.current().span.end].to_string()
+                    self.source[self.current()?.span.start..self.current()?.span.end].to_string()
                 );
                 self.advance(1);
                 Ok(value)
             }
             Token::Ident => {
                 let ident =
-                    self.source[self.current().span.start..self.current().span.end].to_string();
+                    self.source[self.current()?.span.start..self.current()?.span.end].to_string();
 
                 match ident.as_str() {
                     "true" => {
@@ -169,12 +171,13 @@ impl<'a> Parser<'a> {
                 }
             }
             Token::Number => {
+                let line = self.current()?.line;
                 if
                     self.position + 2 < self.tokens.len() &&
                     self.tokens[self.position + 1].kind == Token::Dot &&
                     self.tokens[self.position + 2].kind == Token::Number
                 {
-                    let span_start = self.current().span.start;
+                    let span_start = self.current()?.span.start;
                     let span_end = self.tokens[self.position + 2].span.end;
                     let float_str = &self.source[span_start..span_end];
                     self.advance(3);
@@ -183,25 +186,27 @@ impl<'a> Parser<'a> {
                         Value::Float(
                             float_str.parse::<f64>().map_err(|_| ParserError::InvalidNumber {
                                 value: float_str.to_string(),
-                                line: self.current().line,
+                                line,
                             })?
                         )
                     );
                 }
 
-                let int_str = &self.source[self.current().span.start..self.current().span.end];
+                let int_str = &self.source[self.current()?.span.start..self.current()?.span.end];
                 self.advance(1);
 
                 return Ok(
                     Value::Int(
                         int_str.parse::<usize>().map_err(|_| ParserError::InvalidNumber {
                             value: int_str.to_string(),
-                            line: self.current().line,
+                            line,
                         })?
                     )
                 );
             }
             Token::Minus => {
+                let line = self.current()?.line;
+
                 if
                     self.position + 1 < self.tokens.len() &&
                     self.tokens[self.position + 1].kind == Token::Number
@@ -211,7 +216,7 @@ impl<'a> Parser<'a> {
                         self.tokens[self.position + 2].kind == Token::Dot &&
                         self.tokens[self.position + 3].kind == Token::Number
                     {
-                        let span_start = self.tokens[self.position].span.start;
+                        let span_start = self.current()?.span.start;
                         let span_end = self.tokens[self.position + 3].span.end;
                         let float_str = &self.source[span_start..span_end];
                         self.advance(4);
@@ -220,22 +225,22 @@ impl<'a> Parser<'a> {
                             Value::Float(
                                 float_str.parse::<f64>().map_err(|_| ParserError::InvalidNumber {
                                     value: float_str.to_string(),
-                                    line: self.current().line,
+                                    line,
                                 })?
                             )
                         );
                     }
 
-                    let span_start = self.tokens[self.position].span.start; // minus
+                    let span_start = self.current()?.span.start; // minus
                     self.advance(1);
-                    let span_end = self.tokens[self.position].span.end; // number
+                    let span_end = self.current()?.span.end; // number
                     let int_str = &self.source[span_start..span_end];
                     self.advance(1);
                     return Ok(
                         Value::Signed(
                             int_str.parse::<isize>().map_err(|_| ParserError::InvalidNumber {
                                 value: int_str.to_string(),
-                                line: self.current().line,
+                                line,
                             })?
                         )
                     );
@@ -245,7 +250,7 @@ impl<'a> Parser<'a> {
                             .get(self.position + 1)
                             .map(|token| format!("{:?}", token.kind))
                             .unwrap_or_else(|| "nothing".to_string()),
-                        line: self.current().line,
+                        line,
                     });
                 }
             }
@@ -255,15 +260,15 @@ impl<'a> Parser<'a> {
 
                 self.advance(1);
 
-                while self.in_bounds() && self.current().kind != Token::CloseSquare {
-                    self.skip_whitespace();
+                while self.in_bounds() && self.current()?.kind != Token::CloseSquare {
+                    self.skip_whitespace()?;
 
                     vec.push(self.expression()?);
 
-                    self.skip_whitespace();
+                    self.skip_whitespace()?;
 
-                    if !self.expect(Token::Comma) {
-                        self.skip_whitespace();
+                    if !self.expect(Token::Comma)? {
+                        self.skip_whitespace()?;
                         if self.in_bounds() {
                             match self.tokens.get(self.position) {
                                 Some(
@@ -275,22 +280,22 @@ impl<'a> Parser<'a> {
                                     return Err(ParserError::UnexpectedToken {
                                         found: t.kind,
                                         expected: Token::Comma,
-                                        line: self.current().line,
+                                        line: self.current()?.line,
                                     });
                                 }
                                 None => {
                                     return Err(ParserError::UnterminatedArray {
-                                        line: self.current().line,
+                                        line: self.current()?.line,
                                     });
                                 }
                             }
                         } else {
                             return Err(ParserError::UnterminatedArray {
-                                line: self.current().line,
+                                line: self.current()?.line,
                             });
                         }
                     }
-                    self.skip_whitespace();
+                    self.skip_whitespace()?;
                 }
                 self.advance(1);
 
@@ -299,15 +304,15 @@ impl<'a> Parser<'a> {
             t => {
                 return Err(ParserError::ExpectedExpression {
                     found: t,
-                    line: self.current().line,
+                    line: self.current()?.line,
                 });
             }
         }
     }
 
-    fn skip_trivia(&mut self) {
+    fn skip_trivia(&mut self) -> Result<(), ParserError> {
         while self.in_bounds() {
-            match self.current().kind {
+            match self.current()?.kind {
                 Token::WhiteSpace | Token::Newline | Token::Comment => {
                     self.advance(1);
                 }
@@ -316,11 +321,12 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        Ok(())
     }
 
-    fn skip_whitespace(&mut self) {
+    fn skip_whitespace(&mut self) -> Result<(), ParserError> {
         while self.in_bounds() {
-            match &self.current().kind {
+            match &self.current()?.kind {
                 Token::WhiteSpace | Token::Newline => {
                     self.advance(1);
                 }
@@ -329,23 +335,34 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        Ok(())
     }
 
     fn advance(&mut self, amount: usize) {
         self.position += amount;
     }
 
-    fn current(&self) -> &SpannedToken {
-        &self.tokens[self.position]
+    fn current(&self) -> Result<&SpannedToken, ParserError> {
+        match &self.tokens.get(self.position) {
+            Some(value) => { Ok(value) }
+            None => {
+                return Err(ParserError::UnexpectedEof);
+            }
+        }
     }
 
-    fn expect(&mut self, token: Token) -> bool {
-        if self.in_bounds() && self.current().kind == token {
+    fn expect(&mut self, token: Token) -> Result<bool, ParserError> {
+        if self.in_bounds() && self.current()?.kind == token {
             self.advance(1);
-            true
+            Ok(true)
         } else {
-            false
+            Ok(false)
         }
+    }
+
+    /// Helper to check if current position is within tokens and not EOF
+    fn in_bounds(&self) -> bool {
+        self.position < self.tokens.len() && self.tokens[self.position].kind != Token::EOF
     }
 }
 
