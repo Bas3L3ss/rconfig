@@ -19,7 +19,7 @@ fn main() {
             match get(&path, &search) {
                 Ok(val) => {
                     match val {
-                        Some(v) => println!("{v:#?}"),
+                        Some(v) => println!("{search}: {v:#?}"),
                         None => {
                             eprintln!("Error: Key not found");
                             std::process::exit(1);
