@@ -7,35 +7,42 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
     use Token::*;
     let mut tokens = Vec::new();
     let mut chars = source.char_indices().peekable();
+    let mut line = 1;
 
     while let Some((start, ch)) = chars.next() {
         let token = match ch {
-            '#' => tokenize_comment(start, &mut chars),
-            '"' => tokenize_string(start, &mut chars),
+            '#' => tokenize_comment(start, &mut chars, line),
+            '"' => tokenize_string(start, &mut chars, line),
             ch if ch.is_ascii_alphabetic() || ch == '_' =>
                 tokenize_run(
                     start,
                     ch,
                     &mut chars,
                     |c| (c.is_ascii_alphanumeric() || c == '_'),
-                    Ident
+                    Ident,
+                    line
                 ),
             ch if ch.is_ascii_digit() =>
-                tokenize_run(start, ch, &mut chars, |c| c.is_ascii_digit(), Number),
+                tokenize_run(start, ch, &mut chars, |c| c.is_ascii_digit(), Number, line),
             '\r' =>
                 match chars.peek() {
                     Some(&(next_idx, '\n')) => {
                         chars.next();
+                        line += 1;
                         SpannedToken {
                             kind: Newline,
                             span: start..next_idx + 1,
+                            line: line - 1,
                         }
                     }
-                    _ =>
+                    _ => {
+                        line += 1;
                         SpannedToken {
                             kind: Newline,
                             span: start..start + 1,
-                        },
+                            line: line - 1,
+                        }
+                    }
                 }
             ch if ch.is_whitespace() && ch != '\n' && ch != '\r' =>
                 tokenize_run(
@@ -43,28 +50,36 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
                     ch,
                     &mut chars,
                     |c| c.is_whitespace() && c != '\n' && c != '\r',
-                    WhiteSpace
+                    WhiteSpace,
+                    line
                 ),
-            '\n' => SpannedToken { kind: Newline, span: start..start + 1 },
+            '\n' => {
+                line += 1;
+                SpannedToken { kind: Newline, span: start..start + 1, line: line - 1 }
+            }
 
-            ',' => SpannedToken { kind: Comma, span: start..start + 1 },
-            '=' => SpannedToken { kind: Equal, span: start..start + 1 },
-            '[' => SpannedToken { kind: OpenSquare, span: start..start + 1 },
-            ']' => SpannedToken { kind: CloseSquare, span: start..start + 1 },
-            '{' => SpannedToken { kind: OpenBracket, span: start..start + 1 },
-            '}' => SpannedToken { kind: CloseBracket, span: start..start + 1 },
-            '-' => SpannedToken { kind: Minus, span: start..start + 1 },
-            '.' => SpannedToken { kind: Dot, span: start..start + 1 },
-            _ => SpannedToken { kind: Unknown, span: start..start + ch.len_utf8() },
+            ',' => SpannedToken { kind: Comma, span: start..start + 1, line },
+            '=' => SpannedToken { kind: Equal, span: start..start + 1, line },
+            '[' => SpannedToken { kind: OpenSquare, span: start..start + 1, line },
+            ']' => SpannedToken { kind: CloseSquare, span: start..start + 1, line },
+            '{' => SpannedToken { kind: OpenBracket, span: start..start + 1, line },
+            '}' => SpannedToken { kind: CloseBracket, span: start..start + 1, line },
+            '-' => SpannedToken { kind: Minus, span: start..start + 1, line },
+            '.' => SpannedToken { kind: Dot, span: start..start + 1, line },
+            _ => SpannedToken { kind: Unknown, span: start..start + ch.len_utf8(), line },
         };
         tokens.push(token);
     }
-    tokens.push(SpannedToken { kind: EOF, span: 0..0 });
+    tokens.push(SpannedToken { kind: EOF, span: 0..0, line });
 
     tokens
 }
 
-fn tokenize_comment<I>(start: usize, chars: &mut std::iter::Peekable<I>) -> SpannedToken
+fn tokenize_comment<I>(
+    start: usize,
+    chars: &mut std::iter::Peekable<I>,
+    line: usize
+) -> SpannedToken
     where I: Iterator<Item = (usize, char)>
 {
     use Token::*;
@@ -76,10 +91,10 @@ fn tokenize_comment<I>(start: usize, chars: &mut std::iter::Peekable<I>) -> Span
         chars.next();
         end = next_idx + next_ch.len_utf8();
     }
-    SpannedToken { kind: Comment, span: start..end }
+    SpannedToken { kind: Comment, span: start..end, line }
 }
 
-fn tokenize_string<I>(start: usize, chars: &mut std::iter::Peekable<I>) -> SpannedToken
+fn tokenize_string<I>(start: usize, chars: &mut std::iter::Peekable<I>, line: usize) -> SpannedToken
     where I: Iterator<Item = (usize, char)>
 {
     use Token::*;
@@ -110,7 +125,7 @@ fn tokenize_string<I>(start: usize, chars: &mut std::iter::Peekable<I>) -> Spann
         chars.next();
         end = next_idx + next_ch.len_utf8();
     }
-    SpannedToken { kind: String, span: start + 1..end }
+    SpannedToken { kind: String, span: start + 1..end, line }
 }
 
 fn tokenize_run<I, F>(
@@ -118,7 +133,8 @@ fn tokenize_run<I, F>(
     ch: char,
     chars: &mut std::iter::Peekable<I>,
     mut check: F,
-    kind: Token
+    kind: Token,
+    line: usize
 )
     -> SpannedToken
     where I: Iterator<Item = (usize, char)>, F: FnMut(char) -> bool
@@ -131,5 +147,5 @@ fn tokenize_run<I, F>(
         chars.next();
         end = next_idx + next_ch.len_utf8();
     }
-    SpannedToken { kind, span: start..end }
+    SpannedToken { kind, span: start..end, line }
 }

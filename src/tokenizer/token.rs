@@ -27,4 +27,5 @@ pub enum Token {
 pub struct SpannedToken {
     pub kind: Token,
     pub span: Range<usize>,
+    pub line: usize,
 }
