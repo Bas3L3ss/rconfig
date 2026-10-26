@@ -40,6 +40,5 @@ fn main() {
                 }
             }
         }
-        Commands::Validate { path } => { todo!() }
     }
 }
