@@ -77,7 +77,11 @@ impl<'a> Parser<'a> {
                     self.skip_whitespace();
                 }
                 t => {
-                    todo!("Unexpected token in struct: {t:?}");
+                    return Err(ParserError::UnexpectedToken {
+                        found: *t,
+                        expected: Token::Equal,
+                        line: Line(self.current().line),
+                    });
                 }
             }
             self.skip_whitespace();

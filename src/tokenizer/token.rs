@@ -1,6 +1,7 @@
+use std::fmt;
 use std::ops::Range;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum Token {
     Comment,
     Ident,
@@ -21,6 +22,30 @@ pub enum Token {
 
     Unknown,
     EOF,
+}
+
+impl fmt::Debug for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            Token::Comment => "comment",
+            Token::Ident => "identifier",
+            Token::String => "string",
+            Token::Number => "number",
+            Token::Equal => "`=`",
+            Token::OpenSquare => "`[`",
+            Token::CloseSquare => "`]`",
+            Token::OpenBracket => "`{`",
+            Token::CloseBracket => "`}`",
+            Token::Comma => "`,`",
+            Token::Minus => "`-`",
+            Token::Dot => "`.`",
+            Token::Newline => "newline",
+            Token::WhiteSpace => "whitespace",
+            Token::Unknown => "unknown",
+            Token::EOF => "end of file",
+        };
+        write!(f, "{name}")
+    }
 }
 
 #[derive(Debug)]
