@@ -1,7 +1,7 @@
 pub mod value;
 pub mod error;
 pub use error::*;
-use std::collections::HashMap;
+use std::collections::{ HashMap, hash_map::Entry };
 
 pub use value::*;
 
@@ -76,29 +76,31 @@ impl<'a> Parser<'a> {
                     self.advance(1);
                     self.skip_whitespace()?;
 
-                    match linemap.insert(key.clone(), self.current()?.line) {
-                        None => {
+                    match linemap.entry(key.clone()) {
+                        Entry::Vacant(entry) => {
+                            entry.insert(line);
                             map.insert(key, self.expression()?);
                         }
-                        Some(first_line) => {
+                        Entry::Occupied(entry) => {
                             return Err(ParserError::DuplicatedKey {
-                                key: key,
+                                key,
                                 line,
-                                first_line,
+                                first_line: *entry.get(),
                             });
                         }
                     }
                 }
                 Token::OpenBracket => {
-                    match linemap.insert(key.clone(), self.current()?.line) {
-                        None => {
+                    match linemap.entry(key.clone()) {
+                        Entry::Vacant(entry) => {
+                            entry.insert(line);
                             map.insert(key, self.parse_struct()?);
                         }
-                        Some(first_line) => {
+                        Entry::Occupied(entry) => {
                             return Err(ParserError::DuplicatedKey {
-                                key: key,
+                                key,
                                 line,
-                                first_line,
+                                first_line: *entry.get(),
                             });
                         }
                     }
@@ -262,6 +264,10 @@ impl<'a> Parser<'a> {
 
                 while self.in_bounds() && self.current()?.kind != Token::CloseSquare {
                     self.skip_whitespace()?;
+
+                    if self.current()?.kind == Token::CloseSquare {
+                        break;
+                    }
 
                     vec.push(self.expression()?);
 
