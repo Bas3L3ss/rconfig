@@ -20,7 +20,7 @@ pub enum Commands {
         #[arg(help = "Path to the .rcfg file")]
         path: String,
         #[arg(help = "Key to retrieve")]
-        key: String,
+        search: String,
     },
     /// Validate the rconfig file
     Validate {
