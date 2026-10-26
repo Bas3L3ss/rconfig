@@ -103,7 +103,7 @@ impl<'a> Parser<'a> {
 
     fn expression(&mut self) -> Result<Value, ParserError> {
         if !self.in_bounds() {
-            return Err(ParserError::UnexpectedEof(Line(self.current().line)));
+            return Err(ParserError::UnexpectedEof);
         }
         match self.current().kind {
             Token::String => {

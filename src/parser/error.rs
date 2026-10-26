@@ -1,5 +1,4 @@
 use std::fmt;
-
 use thiserror::Error;
 
 use crate::tokenizer::Token;
@@ -16,32 +15,24 @@ impl fmt::Display for Line {
 #[derive(Debug, Error, PartialEq)]
 pub enum ParserError {
     #[error(
-        "unexpected token at line {line}: found {found:?}, expected {expected:?}"
+        "Unexpected token at line {line}: expected `{expected:?}`, found `{found:?}`"
     )] UnexpectedToken {
         found: Token,
         expected: Token,
         line: Line,
     },
 
-    // #[error("unexpected token at line {1}: {0:?}")] Unexpected(Token, Line),
+    #[error("Expected an expression at line {1}, found `{0:?}`")] ExpectedExpression(Token, Line),
 
-    #[error("expected expression at line {1}, found {0:?}")] ExpectedExpression(Token, Line),
+    #[error("Expected `{0:?}` at line {1}")] MissingToken(Token, Line),
 
-    #[error("missing token at line {1}: expected {0:?}")] MissingToken(Token, Line),
+    #[error(
+        "Unterminated array at line {0}: expected `]` before the end of input"
+    )] UnterminatedArray(Line),
 
-    // #[error("unterminated string at line {0}")] UnterminatedString(Line),
+    #[error("Unexpected end of file")] UnexpectedEof,
 
-    #[error("unterminated array at line {0}; expected `]`")] UnterminatedArray(Line),
+    #[error("Invalid number at line {1}: `{0}` is not a valid number")] InvalidNumber(String, Line),
 
-    // #[error("unterminated struct at line {0}; expected `}}`")] UnterminatedStruct(Line),
-
-    #[error("unexpected end of input at line {0}")] UnexpectedEof(Line),
-
-    #[error("invalid number at line {1}: {0}")] InvalidNumber(String, Line),
-
-    #[error("expected number after '-' at line {1}, found {0}")] InvalidSigned(String, Line),
-
-    // #[error("duplicate key at line {1}: `{0}`")] DuplicateKey(String, Line),
-
-    // #[error("expected key at line {1}, found {0:?}")] ExpectedKey(Token, Line),
+    #[error("Expected a number after `-` at line {1}, found `{0}`")] InvalidSigned(String, Line),
 }
