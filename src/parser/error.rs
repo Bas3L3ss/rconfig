@@ -23,23 +23,25 @@ pub enum ParserError {
         line: Line,
     },
 
-    #[error("unexpected token at line {1}: {0:?}")] Unexpected(Token, Line),
+    // #[error("unexpected token at line {1}: {0:?}")] Unexpected(Token, Line),
 
-    #[error("missing expression at line {0}")] MissingExpression(Line),
+    #[error("expected expression at line {1}, found {0:?}")] ExpectedExpression(Token, Line),
 
     #[error("missing token at line {1}: expected {0:?}")] MissingToken(Token, Line),
 
-    #[error("unterminated string at line {0}")] UnterminatedString(Line),
+    // #[error("unterminated string at line {0}")] UnterminatedString(Line),
 
     #[error("unterminated array at line {0}; expected `]`")] UnterminatedArray(Line),
 
-    #[error("unterminated struct at line {0}; expected `}}`")] UnterminatedStruct(Line),
+    // #[error("unterminated struct at line {0}; expected `}}`")] UnterminatedStruct(Line),
 
     #[error("unexpected end of input at line {0}")] UnexpectedEof(Line),
 
     #[error("invalid number at line {1}: {0}")] InvalidNumber(String, Line),
 
-    #[error("duplicate key at line {1}: `{0}`")] DuplicateKey(String, Line),
+    #[error("expected number after '-' at line {1}, found {0}")] InvalidSigned(String, Line),
 
-    #[error("expected key at line {1}, found {0:?}")] ExpectedKey(Token, Line),
+    // #[error("duplicate key at line {1}: `{0}`")] DuplicateKey(String, Line),
+
+    // #[error("expected key at line {1}, found {0:?}")] ExpectedKey(Token, Line),
 }

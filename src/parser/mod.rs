@@ -67,10 +67,10 @@ impl<'a> Parser<'a> {
                 Token::Equal => {
                     self.advance(1);
                     self.skip_whitespace();
-                    map.insert(key, self.expression().unwrap()); // TODO:Handle unwrap
+                    map.insert(key, self.expression()?);
                 }
                 Token::OpenBracket => {
-                    map.insert(key, self.parse_struct().unwrap()); // TODO:Handle unwrap
+                    map.insert(key, self.parse_struct()?);
                 }
                 Token::Comment => {
                     self.advance(1);
@@ -98,12 +98,12 @@ impl<'a> Parser<'a> {
         // Assume the { has just been seen (current() is OpenBracket).
         // Delegate to parse_block, which handles recursively.
         // parse_block will automatically advance past the OpenBracket and handle closing bracket.
-        Ok(Value::Struct(self.parse_block(Token::OpenBracket, Token::CloseBracket).unwrap())) // TODO:Handle unwrap
+        Ok(Value::Struct(self.parse_block(Token::OpenBracket, Token::CloseBracket)?))
     }
 
     fn expression(&mut self) -> Result<Value, ParserError> {
         if !self.in_bounds() {
-            todo!("Unexpected EOF");
+            return Err(ParserError::UnexpectedEof(Line(self.current().line)));
         }
         match self.current().kind {
             Token::String => {
@@ -113,7 +113,6 @@ impl<'a> Parser<'a> {
                 self.advance(1);
                 Ok(value)
             }
-
             Token::Ident => {
                 let ident =
                     self.source[self.current().span.start..self.current().span.end].to_string();
@@ -145,15 +144,35 @@ impl<'a> Parser<'a> {
                     let float_str = &self.source[span_start..span_end];
                     self.advance(3);
 
-                    // TODO: handle unwrap
-
-                    return Ok(Value::Float(float_str.parse::<f64>().unwrap()));
+                    return Ok(
+                        Value::Float(
+                            float_str
+                                .parse::<f64>()
+                                .map_err(|_|
+                                    ParserError::InvalidNumber(
+                                        float_str.to_string(),
+                                        Line(self.current().line)
+                                    )
+                                )?
+                        )
+                    );
                 }
 
                 let int_str = &self.source[self.current().span.start..self.current().span.end];
                 self.advance(1);
-                // TODO: handle unwrap
-                return Ok(Value::Int(int_str.parse::<usize>().unwrap()));
+
+                return Ok(
+                    Value::Int(
+                        int_str
+                            .parse::<usize>()
+                            .map_err(|_|
+                                ParserError::InvalidNumber(
+                                    int_str.to_string(),
+                                    Line(self.current().line)
+                                )
+                            )?
+                    )
+                );
             }
             Token::Minus => {
                 if
@@ -169,8 +188,19 @@ impl<'a> Parser<'a> {
                         let span_end = self.tokens[self.position + 3].span.end;
                         let float_str = &self.source[span_start..span_end];
                         self.advance(4);
-                        // TODO: handle unwrap
-                        return Ok(Value::Float(float_str.parse::<f64>().unwrap()));
+
+                        return Ok(
+                            Value::Float(
+                                float_str
+                                    .parse::<f64>()
+                                    .map_err(|_|
+                                        ParserError::InvalidNumber(
+                                            float_str.to_string(),
+                                            Line(self.current().line)
+                                        )
+                                    )?
+                            )
+                        );
                     }
 
                     let span_start = self.tokens[self.position].span.start; // minus
@@ -178,12 +208,27 @@ impl<'a> Parser<'a> {
                     let span_end = self.tokens[self.position].span.end; // number
                     let int_str = &self.source[span_start..span_end];
                     self.advance(1);
-                    // TODO: handle unwrap
-                    return Ok(Value::Signed(int_str.parse::<isize>().unwrap()));
+                    return Ok(
+                        Value::Signed(
+                            int_str
+                                .parse::<isize>()
+                                .map_err(|_|
+                                    ParserError::InvalidNumber(
+                                        int_str.to_string(),
+                                        Line(self.current().line)
+                                    )
+                                )?
+                        )
+                    );
                 } else {
-                    todo!(
-                        "Expected a number after '-', found {:?}",
-                        self.tokens.get(self.position + 1)
+                    return Err(
+                        ParserError::InvalidSigned(
+                            self.tokens
+                                .get(self.position + 1)
+                                .map(|token| format!("{:?}", token.kind))
+                                .unwrap_or_else(|| "nothing".to_string()),
+                            Line(self.current().line)
+                        )
                     );
                 }
             }
@@ -196,19 +241,44 @@ impl<'a> Parser<'a> {
                 while self.in_bounds() && self.current().kind != Token::CloseSquare {
                     self.skip_whitespace();
 
-                    vec.push(self.expression().unwrap()); // TODO:Handle unwrap
+                    vec.push(self.expression()?);
 
                     self.skip_whitespace();
 
-                    self.expect(Token::Comma);
+                    if !self.expect(Token::Comma) {
+                        self.skip_whitespace();
+                        if self.in_bounds() {
+                            match self.tokens.get(self.position) {
+                                Some(
+                                    SpannedToken { kind: Token::CloseSquare, span: _, line: _ },
+                                ) => {
+                                    break;
+                                }
+                                Some(t) => {
+                                    return Err(ParserError::UnexpectedToken {
+                                        found: t.kind,
+                                        expected: Token::Comma,
+                                        line: Line(self.current().line),
+                                    });
+                                }
+                                None => {
+                                    return Err(
+                                        ParserError::UnterminatedArray(Line(self.current().line))
+                                    );
+                                }
+                            }
+                        } else {
+                            return Err(ParserError::UnterminatedArray(Line(self.current().line)));
+                        }
+                    }
                     self.skip_whitespace();
                 }
                 self.advance(1);
 
                 return Ok(Value::Vec(vec));
             }
-            _ => {
-                todo!("Incorrect asd");
+            t => {
+                return Err(ParserError::ExpectedExpression(t, Line(self.current().line)));
             }
         }
     }
