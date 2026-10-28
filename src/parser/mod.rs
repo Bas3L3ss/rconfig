@@ -32,14 +32,16 @@ impl<'a> Parser<'a> {
     /// Generic function for parsing a block struct (delimited), allowing recursion in parse_struct.
     /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
     fn parse_block(&mut self, open_token: Token, end_token: Token) -> Result<List, ParserError> {
-        let mut map = HashMap::new();
-        let mut linemap = HashMap::new();
+        let mut map = HashMap::new(); // WIP: parser
+        let mut linemap = HashMap::new(); // WIP: parser, validator
 
         if open_token != Token::EOF && self.current()?.kind == open_token {
+            // WIP2: THIS WILL BE A HANDLER
             self.advance(1);
         }
 
         while self.in_bounds() && (end_token == Token::EOF || self.current()?.kind != end_token) {
+            // WIP2: THIS WILL BE A HANDLER
             self.skip_trivia()?;
 
             if !self.in_bounds() || (end_token != Token::EOF && self.current()?.kind == end_token) {
@@ -48,7 +50,7 @@ impl<'a> Parser<'a> {
 
             let key = match self.current()?.kind {
                 Token::Ident => {
-                    self.source[self.current()?.span.start..self.current()?.span.end].to_string()
+                    self.source[self.current()?.span.start..self.current()?.span.end].to_string() // WIP: parser, validator
                 }
                 t => {
                     return Err(ParserError::UnexpectedToken {
@@ -58,9 +60,11 @@ impl<'a> Parser<'a> {
                     });
                 }
             };
-            let line = self.current()?.line;
+            let line = self.current()?.line; // WIP: parser, validator
 
             self.advance(1);
+
+            // WIP2: THIS WILL BE A HANDLER
             self.skip_whitespace()?;
 
             if !self.in_bounds() {
@@ -73,12 +77,14 @@ impl<'a> Parser<'a> {
 
             match &self.current()?.kind {
                 Token::Equal => {
+                    // WIP2: THIS WILL BE A HANDLER
                     self.advance(1);
                     self.skip_whitespace()?;
 
+                    // WIP2: THIS WILL BE A HANDLER
                     match linemap.entry(key.clone()) {
                         Entry::Vacant(entry) => {
-                            entry.insert(line);
+                            entry.insert(line); // WIP: parser, validator
                             map.insert(key, self.expression()?);
                         }
                         Entry::Occupied(entry) => {
@@ -91,6 +97,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Token::OpenBracket => {
+                    // WIP2: THIS WILL BE A HANDLER
                     match linemap.entry(key.clone()) {
                         Entry::Vacant(entry) => {
                             entry.insert(line);
@@ -114,12 +121,15 @@ impl<'a> Parser<'a> {
                     });
                 }
             }
+
+            // WIP2: THIS WILL BE A HANDLER
             self.skip_whitespace()?;
         }
 
         if end_token != Token::EOF {
             if self.in_bounds() {
                 if self.current()?.kind == end_token {
+                    // WIP2: THIS WILL BE A HANDLER
                     self.advance(1);
                 } else {
                     return Err(ParserError::UnterminatedStruct {
@@ -146,6 +156,7 @@ impl<'a> Parser<'a> {
         }
         match self.current()?.kind {
             Token::String => {
+                // WIP2: THIS WILL BE A HANDLER
                 let value = Value::String(
                     self.source[self.current()?.span.start..self.current()?.span.end].to_string()
                 );
@@ -153,6 +164,7 @@ impl<'a> Parser<'a> {
                 Ok(value)
             }
             Token::Ident => {
+                // WIP2: THIS WILL BE A HANDLER
                 let ident =
                     self.source[self.current()?.span.start..self.current()?.span.end].to_string();
 

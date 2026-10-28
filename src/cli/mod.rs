@@ -2,7 +2,7 @@ use clap::{ Parser, Subcommand };
 
 #[derive(Debug, Parser)]
 #[command(name = "rcfg")]
-#[command(about = "A .rcfg file parser", long_about = None)]
+#[command(about = "Toolchains for .rcfg files", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -17,6 +17,11 @@ pub enum Commands {
     },
     /// Format the contents of rconfig file
     Format {
+        #[arg(help = "Path to the .rcfg file")]
+        path: String,
+    },
+    /// Validate the contents of rconfig file
+    Validate {
         #[arg(help = "Path to the .rcfg file")]
         path: String,
     },
