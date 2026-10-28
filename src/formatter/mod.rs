@@ -6,10 +6,11 @@ use crate::tokenizer::{ FormatToken, SpannedToken, Token };
 pub type List = Vec<FormatToken>;
 
 pub struct Formatter<'a> {
-    pub source: &'a str,
-    pub tokens: &'a [SpannedToken],
-    pub position: usize,
-    pub formatted_tokens: List,
+    source: &'a str,
+    tokens: &'a [SpannedToken],
+    position: usize,
+    formatted_tokens: List,
+    identation_level: usize,
 }
 
 impl<'a> Formatter<'a> {
@@ -19,6 +20,7 @@ impl<'a> Formatter<'a> {
             tokens,
             position: 0,
             formatted_tokens: Vec::with_capacity(tokens.len()),
+            identation_level: 0,
         }
     }
 
@@ -31,21 +33,34 @@ impl<'a> Formatter<'a> {
     /// Generic function for parsing a block struct (delimited), allowing recursion in parse_struct.
     /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
     fn format_block(&mut self, open_token: Token, end_token: Token) -> Result<(), FormatterError> {
+        let mut is_first = true;
+
         if open_token != Token::EOF && self.current()?.kind == open_token {
             self.push_current()?;
+            self.push_whitespaces(1);
             self.advance(1);
         }
 
         while self.in_bounds() && (end_token == Token::EOF || self.current()?.kind != end_token) {
-            // WIP2: THIS WILL BE A HANDLER
-            self.skip_trivia()?;
+            self.skip_trivia(&mut is_first, open_token)?;
 
             if !self.in_bounds() || (end_token != Token::EOF && self.current()?.kind == end_token) {
+                while let Some(token) = self.formatted_tokens.last() {
+                    match token.kind {
+                        Token::WhiteSpace | Token::Newline => {
+                            self.formatted_tokens.pop();
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
+                }
                 break;
             }
 
             match self.current()?.kind {
                 Token::Ident => {
+                    self.push_identation(0);
                     self.push_current()?;
                 }
                 t => {
@@ -59,8 +74,9 @@ impl<'a> Formatter<'a> {
 
             self.advance(1);
 
-            // WIP2: THIS WILL BE A HANDLER
             self.skip_whitespace()?;
+
+            self.push_whitespaces(1);
 
             if !self.in_bounds() {
                 return Err(FormatterError::UnexpectedToken {
@@ -73,13 +89,15 @@ impl<'a> Formatter<'a> {
             match &self.current()?.kind {
                 Token::Equal => {
                     self.push_current()?;
+                    self.push_whitespaces(1);
                     self.advance(1);
                     self.skip_whitespace()?;
-
                     self.expression()?;
                 }
                 Token::OpenBracket => {
+                    self.identation_level += 1;
                     self.format_struct()?;
+                    self.identation_level -= 1;
                 }
 
                 t => {
@@ -90,15 +108,13 @@ impl<'a> Formatter<'a> {
                     });
                 }
             }
-
-            // WIP2: THIS WILL BE A HANDLER
-            self.skip_whitespace()?;
         }
 
         if end_token != Token::EOF {
             if self.in_bounds() {
                 if self.current()?.kind == end_token {
-                    // WIP2: THIS WILL BE A HANDLER
+                    self.push_line();
+                    self.push_identation(-1);
                     self.push_current()?;
                     self.advance(1);
                 } else {
@@ -134,7 +150,6 @@ impl<'a> Formatter<'a> {
             }
 
             Token::Ident => {
-                // WIP2: THIS WILL BE A HANDLER
                 let ident =
                     self.source[self.current()?.span.start..self.current()?.span.end].to_string();
 
@@ -266,19 +281,52 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn skip_trivia(&mut self) -> Result<(), FormatterError> {
+    fn skip_trivia(
+        &mut self,
+        is_first: &mut bool,
+        open_token: Token
+    ) -> Result<(), FormatterError> {
+        let mut line = 0;
         while self.in_bounds() {
             match self.current()?.kind {
-                Token::WhiteSpace | Token::Comment | Token::Newline => {
+                Token::Comment => {
                     self.push_current()?;
+                    self.advance(1);
+                    *is_first = false;
+                }
+
+                Token::Newline => {
+                    if *is_first {
+                        dbg!("hi");
+                        if open_token == Token::EOF {
+                            self.advance(1);
+                            continue;
+                        } else if line < 2 {
+                            line = 2;
+                            self.push_current()?;
+                            self.advance(1);
+                            continue;
+                        }
+                    }
+                    if line < 2 {
+                        self.push_current()?;
+                        line += 1;
+                    }
                     self.advance(1);
                 }
 
+                Token::WhiteSpace => {
+                    self.advance(1);
+                }
                 _ => {
                     break;
                 }
             }
         }
+        if *is_first && open_token != Token::EOF && line == 0 {
+            self.push_line();
+        }
+        *is_first = false;
         Ok(())
     }
 
@@ -286,7 +334,7 @@ impl<'a> Formatter<'a> {
         while self.in_bounds() {
             match &self.current()?.kind {
                 Token::WhiteSpace | Token::Newline => {
-                    self.push_current()?;
+                    // self.push_current()?;
                     self.advance(1);
                 }
                 _ => {
@@ -327,6 +375,22 @@ impl<'a> Formatter<'a> {
         Ok(())
     }
 
+    fn push_identation(&mut self, regress: isize) {
+        self.formatted_tokens.push(
+            FormatToken::new(
+                Token::WhiteSpace,
+                "\t".repeat(((self.identation_level as isize) + regress) as usize)
+            )
+        );
+    }
+
+    fn push_line(&mut self) {
+        self.formatted_tokens.push(FormatToken::new(Token::WhiteSpace, "\n".to_string()));
+    }
+
+    fn push_whitespaces(&mut self, amount: usize) {
+        self.formatted_tokens.push(FormatToken::new(Token::WhiteSpace, " ".repeat(amount)));
+    }
     /// Helper to check if current position is within tokens and not EOF
     fn in_bounds(&self) -> bool {
         self.position < self.tokens.len() && self.tokens[self.position].kind != Token::EOF

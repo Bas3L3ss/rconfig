@@ -16,7 +16,5 @@ pub fn serialize<'a>(tokens: Vec<FormatToken>) -> String {
         }
     }
 
-    println!("{out}");
-
     out
 }

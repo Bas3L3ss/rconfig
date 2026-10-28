@@ -1,2 +1,5 @@
-
-host = 2.3
+database { 
+	host = "localhost"# Inline comment
+	port = 5432
+	enabled = true
+}
