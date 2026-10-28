@@ -22,7 +22,7 @@ tools:
   ```
 
   - `rconfig`: The CLI tool entry point
-  - `<SUBCOMMAND>`: Action to perform, such as `validate`, `get`, `list`
+  - `<SUBCOMMAND>`: Action to perform, such as `format`, `get`, `list`
   - `[ARGS...]`: Arguments required by the subcommand
 
 - APIs: expose public apis for external rust projects to make use of. Validate config, inspect, list
@@ -74,5 +74,5 @@ dev: proptest(randomized test), criterion(performance tracking), tracing (observ
 5. Future plan:
 
 - Add support for conversion to JSON, Toml, and XML
-- Add support for formatter, color (this can be a VS code extension as well)
+- Add support for color (this can be a VS code extension as well)
 -
