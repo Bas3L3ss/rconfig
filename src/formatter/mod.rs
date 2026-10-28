@@ -99,6 +99,7 @@ impl<'a> Formatter<'a> {
             if self.in_bounds() {
                 if self.current()?.kind == end_token {
                     // WIP2: THIS WILL BE A HANDLER
+                    self.push_current()?;
                     self.advance(1);
                 } else {
                     return Err(FormatterError::UnterminatedStruct {
@@ -124,11 +125,36 @@ impl<'a> Formatter<'a> {
             return Err(FormatterError::UnexpectedEof);
         }
         match self.current()?.kind {
-            Token::String | Token::Ident => {
-                // WIP2: THIS WILL BE A HANDLER
-                self.push_current()?;
+            Token::String => {
+                let lexeme =
+                    self.source[self.current()?.span.start..self.current()?.span.end].to_string();
+                self.formatted_tokens.push(FormatToken::new(Token::String, lexeme));
                 self.advance(1);
                 Ok(())
+            }
+
+            Token::Ident => {
+                // WIP2: THIS WILL BE A HANDLER
+                let ident =
+                    self.source[self.current()?.span.start..self.current()?.span.end].to_string();
+
+                match ident.as_str() {
+                    "true" => {
+                        self.formatted_tokens.push(FormatToken::new(Token::Ident, ident));
+                        self.advance(1);
+                        Ok(())
+                    }
+                    "false" => {
+                        self.formatted_tokens.push(FormatToken::new(Token::Ident, ident));
+                        self.advance(1);
+                        Ok(())
+                    }
+                    _ => {
+                        self.formatted_tokens.push(FormatToken::new(Token::String, ident));
+                        self.advance(1);
+                        Ok(())
+                    }
+                }
             }
 
             Token::Number => {
@@ -136,20 +162,20 @@ impl<'a> Formatter<'a> {
                 let line = token.line;
                 let lexeme = &self.source[token.span.start..token.span.end];
 
-                lexeme.parse::<i64>().map_err(|_| {
-                    FormatterError::InvalidNumber {
-                        value: lexeme.to_string(),
-                        line,
-                    }
-                })?;
-
                 self.formatted_tokens.push(
                     FormatToken::new(
                         Token::Number,
-                        self.source[token.span.start..token.span.end].to_string()
+                        lexeme
+                            .parse::<i64>()
+                            .map_err(|_| {
+                                FormatterError::InvalidNumber {
+                                    value: lexeme.to_string(),
+                                    line,
+                                }
+                            })?
+                            .to_string()
                     )
                 );
-
                 self.advance(1);
 
                 Ok(())
@@ -160,17 +186,18 @@ impl<'a> Formatter<'a> {
                 let line = token.line;
                 let lexeme = &self.source[token.span.start..token.span.end];
 
-                lexeme.parse::<f64>().map_err(|_| {
-                    FormatterError::InvalidNumber {
-                        value: lexeme.to_string(),
-                        line,
-                    }
-                })?;
-
                 self.formatted_tokens.push(
                     FormatToken::new(
                         Token::Number,
-                        self.source[token.span.start..token.span.end].to_string()
+                        lexeme
+                            .parse::<f64>()
+                            .map_err(|_| {
+                                FormatterError::InvalidNumber {
+                                    value: lexeme.to_string(),
+                                    line,
+                                }
+                            })?
+                            .to_string()
                     )
                 );
 
@@ -190,7 +217,7 @@ impl<'a> Formatter<'a> {
                     if self.current()?.kind == Token::CloseSquare {
                         break;
                     }
-
+                    self.expression()?;
                     self.skip_whitespace()?;
 
                     if !self.expect(Token::Comma)? {
@@ -240,30 +267,13 @@ impl<'a> Formatter<'a> {
     }
 
     fn skip_trivia(&mut self) -> Result<(), FormatterError> {
-        let mut found_content = false;
-
         while self.in_bounds() {
             match self.current()?.kind {
-                Token::Newline => {
-                    if !found_content {
-                        self.advance(1);
-                    } else {
-                        found_content = false;
-                        self.formatted_tokens.push(
-                            FormatToken::new(self.current()?.kind, String::from("\n"))
-                        );
-                    }
-                }
-
-                Token::WhiteSpace => {
+                Token::WhiteSpace | Token::Comment | Token::Newline => {
                     self.push_current()?;
+                    self.advance(1);
                 }
 
-                Token::Comment => {
-                    found_content = true;
-
-                    self.push_current()?;
-                }
                 _ => {
                     break;
                 }

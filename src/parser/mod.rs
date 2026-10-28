@@ -77,11 +77,9 @@ impl<'a> Parser<'a> {
 
             match &self.current()?.kind {
                 Token::Equal => {
-                    // WIP2: THIS WILL BE A HANDLER
                     self.advance(1);
                     self.skip_whitespace()?;
 
-                    // WIP2: THIS WILL BE A HANDLER
                     match linemap.entry(key.clone()) {
                         Entry::Vacant(entry) => {
                             entry.insert(line); // WIP: parser, validator
@@ -97,7 +95,6 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Token::OpenBracket => {
-                    // WIP2: THIS WILL BE A HANDLER
                     match linemap.entry(key.clone()) {
                         Entry::Vacant(entry) => {
                             entry.insert(line);
@@ -129,7 +126,6 @@ impl<'a> Parser<'a> {
         if end_token != Token::EOF {
             if self.in_bounds() {
                 if self.current()?.kind == end_token {
-                    // WIP2: THIS WILL BE A HANDLER
                     self.advance(1);
                 } else {
                     return Err(ParserError::UnterminatedStruct {
@@ -156,7 +152,6 @@ impl<'a> Parser<'a> {
         }
         match self.current()?.kind {
             Token::String => {
-                // WIP2: THIS WILL BE A HANDLER
                 let value = Value::String(
                     self.source[self.current()?.span.start..self.current()?.span.end].to_string()
                 );
@@ -164,7 +159,6 @@ impl<'a> Parser<'a> {
                 Ok(value)
             }
             Token::Ident => {
-                // WIP2: THIS WILL BE A HANDLER
                 let ident =
                     self.source[self.current()?.span.start..self.current()?.span.end].to_string();
 

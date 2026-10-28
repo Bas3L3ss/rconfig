@@ -1,7 +1,7 @@
 # Application configuration
+debug = true
 
 app_name = "rconfig-demo"
-debug = true
 port = 8080
 timeout = 2.5
 
