@@ -1,416 +1,38 @@
-pub mod error;
-pub use error::*;
-
+use crate::grammar::{ Grammar, GrammarError, GrammarHandler, TokenCursor };
 use crate::tokenizer::{ FormatToken, SpannedToken, Token };
 
 pub type List = Vec<FormatToken>;
 
-pub struct Formatter<'a> {
-    source: &'a str,
-    tokens: &'a [SpannedToken],
-    position: usize,
-    formatted_tokens: List,
-    identation_level: usize,
+struct BlockFmtState {
+    is_first: bool,
+    open_token: Token,
 }
 
-impl<'a> Formatter<'a> {
-    pub fn new(source: &'a str, tokens: &'a [SpannedToken]) -> Self {
+struct FormatterHandler {
+    source: String,
+    formatted_tokens: List,
+    identation_level: usize,
+    blocks: Vec<BlockFmtState>,
+}
+
+impl FormatterHandler {
+    fn new(source: &str, token_capacity: usize) -> Self {
         Self {
-            source,
-            tokens,
-            position: 0,
-            formatted_tokens: Vec::with_capacity(tokens.len()),
+            source: source.to_string(),
+            formatted_tokens: Vec::with_capacity(token_capacity),
             identation_level: 0,
+            blocks: Vec::new(),
         }
     }
 
-    pub fn format(mut self) -> Result<List, FormatterError> {
-        self.format_block(Token::EOF, Token::EOF)?;
-        Ok(self.formatted_tokens)
+    fn into_list(self) -> List {
+        self.formatted_tokens
     }
 
-    fn format_block(&mut self, open_token: Token, end_token: Token) -> Result<(), FormatterError> {
-        let mut is_first = true;
-
-        if open_token != Token::EOF && self.current()?.kind == open_token {
-            self.push_current()?;
-            self.advance(1);
-            self.skip_just_whitespace()?;
-            if
-                let Some(SpannedToken { kind: Token::Comment, span: _, line: _ }) = self.tokens.get(
-                    self.position
-                )
-            {
-                self.push_whitespaces(1);
-            }
-        }
-
-        while self.in_bounds() && (end_token == Token::EOF || self.current()?.kind != end_token) {
-            self.skip_trivia(&mut is_first, open_token)?;
-
-            if !self.in_bounds() || (end_token != Token::EOF && self.current()?.kind == end_token) {
-                while let Some(token) = self.formatted_tokens.last() {
-                    match token.kind {
-                        Token::WhiteSpace | Token::Newline => {
-                            self.formatted_tokens.pop();
-                        }
-                        _ => {
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-
-            match self.current()?.kind {
-                Token::Ident => {
-                    self.push_identation(0);
-                    self.push_current()?;
-                }
-                t => {
-                    return Err(FormatterError::UnexpectedToken {
-                        found: t,
-                        expected: Token::Ident,
-                        line: self.current()?.line,
-                    });
-                }
-            }
-
-            self.advance(1);
-
-            self.skip_whitespace()?;
-
-            self.push_whitespaces(1);
-
-            if !self.in_bounds() {
-                return Err(FormatterError::UnexpectedToken {
-                    found: Token::EOF,
-                    expected: Token::Equal,
-                    line: self.current()?.line,
-                });
-            }
-
-            match &self.current()?.kind {
-                Token::Equal => {
-                    self.push_current()?;
-                    self.push_whitespaces(1);
-                    self.advance(1);
-                    self.skip_whitespace()?;
-                    self.expression()?;
-                }
-                Token::OpenBracket => {
-                    self.identation_level += 1;
-                    self.format_struct()?;
-                    self.identation_level -= 1;
-                }
-
-                t => {
-                    return Err(FormatterError::UnexpectedToken {
-                        found: *t,
-                        expected: Token::Equal,
-                        line: self.current()?.line,
-                    });
-                }
-            }
-            self.skip_just_whitespace()?;
-
-            if
-                let Some(SpannedToken { kind: Token::Comment, span: _, line: _ }) = self.tokens.get(
-                    self.position
-                )
-            {
-                self.push_whitespaces(1);
-            } else if
-                let Some(SpannedToken { kind: Token::Ident, span: _, line: _ }) = self.tokens.get(
-                    self.position
-                )
-            {
-                self.push_line();
-            }
-        }
-
-        if end_token != Token::EOF {
-            if self.in_bounds() {
-                if self.current()?.kind == end_token {
-                    self.push_line();
-                    self.push_identation(-1);
-                    self.push_current()?;
-                    self.advance(1);
-                } else {
-                    return Err(FormatterError::UnterminatedStruct {
-                        line: self.current()?.line,
-                    });
-                }
-            } else {
-                return Err(FormatterError::UnterminatedStruct {
-                    line: self.current()?.line,
-                });
-            }
-        }
-
-        Ok(())
-    }
-
-    fn format_struct(&mut self) -> Result<(), FormatterError> {
-        Ok(self.format_block(Token::OpenBracket, Token::CloseBracket)?)
-    }
-
-    fn expression(&mut self) -> Result<(), FormatterError> {
-        if !self.in_bounds() {
-            return Err(FormatterError::UnexpectedEof);
-        }
-        match self.current()?.kind {
-            Token::String => {
-                let lexeme =
-                    self.source[self.current()?.span.start..self.current()?.span.end].to_string();
-                self.formatted_tokens.push(FormatToken::new(Token::String, lexeme));
-                self.advance(1);
-                Ok(())
-            }
-
-            Token::Ident => {
-                let ident =
-                    self.source[self.current()?.span.start..self.current()?.span.end].to_string();
-
-                match ident.as_str() {
-                    "true" => {
-                        self.formatted_tokens.push(FormatToken::new(Token::Ident, ident));
-                        self.advance(1);
-                        Ok(())
-                    }
-                    "false" => {
-                        self.formatted_tokens.push(FormatToken::new(Token::Ident, ident));
-                        self.advance(1);
-                        Ok(())
-                    }
-                    _ => {
-                        self.formatted_tokens.push(FormatToken::new(Token::String, ident));
-                        self.advance(1);
-                        Ok(())
-                    }
-                }
-            }
-
-            Token::Number => {
-                let token = self.current()?;
-                let line = token.line;
-                let lexeme = &self.source[token.span.start..token.span.end];
-
-                self.formatted_tokens.push(
-                    FormatToken::new(
-                        Token::Number,
-                        lexeme
-                            .parse::<i64>()
-                            .map_err(|_| {
-                                FormatterError::InvalidNumber {
-                                    value: lexeme.to_string(),
-                                    line,
-                                }
-                            })?
-                            .to_string()
-                    )
-                );
-                self.advance(1);
-
-                Ok(())
-            }
-
-            Token::Float => {
-                let token = self.current()?;
-                let line = token.line;
-                let lexeme = &self.source[token.span.start..token.span.end];
-
-                self.formatted_tokens.push(
-                    FormatToken::new(
-                        Token::Number,
-                        lexeme
-                            .parse::<f64>()
-                            .map_err(|_| {
-                                FormatterError::InvalidNumber {
-                                    value: lexeme.to_string(),
-                                    line,
-                                }
-                            })?
-                            .to_string()
-                    )
-                );
-
-                self.advance(1);
-
-                Ok(())
-            }
-
-            Token::OpenSquare => {
-                self.push_current()?;
-
-                self.advance(1);
-
-                self.skip_whitespace()?;
-                while self.in_bounds() && self.current()?.kind != Token::CloseSquare {
-                    self.skip_whitespace()?;
-                    if self.current()?.kind == Token::CloseSquare {
-                        break;
-                    }
-                    self.expression()?;
-                    self.skip_whitespace()?;
-
-                    if !self.expect(Token::Comma)? {
-                        self.skip_whitespace()?;
-
-                        if self.in_bounds() {
-                            match self.tokens.get(self.position) {
-                                Some(
-                                    SpannedToken { kind: Token::CloseSquare, span: _, line: _ },
-                                ) => {
-                                    break;
-                                }
-                                Some(t) => {
-                                    return Err(FormatterError::UnexpectedToken {
-                                        found: t.kind,
-                                        expected: Token::Comma,
-                                        line: self.current()?.line,
-                                    });
-                                }
-                                None => {
-                                    return Err(FormatterError::UnterminatedArray {
-                                        line: self.current()?.line,
-                                    });
-                                }
-                            }
-                        } else {
-                            return Err(FormatterError::UnterminatedArray {
-                                line: self.current()?.line,
-                            });
-                        }
-                    }
-
-                    self.skip_whitespace()?;
-                    if self.current()?.kind == Token::CloseSquare {
-                        self.formatted_tokens.pop();
-                    } else {
-                        self.push_whitespaces(1);
-                    }
-                }
-                self.push_current()?;
-                self.advance(1);
-
-                return Ok(());
-            }
-            t => {
-                return Err(FormatterError::ExpectedExpression {
-                    found: t,
-                    line: self.current()?.line,
-                });
-            }
-        }
-    }
-
-    fn skip_trivia(
-        &mut self,
-        is_first: &mut bool,
-        open_token: Token
-    ) -> Result<(), FormatterError> {
-        let mut line = 0;
-        while self.in_bounds() {
-            match self.current()?.kind {
-                Token::Comment => {
-                    self.push_current()?;
-                    self.advance(1);
-                    *is_first = false;
-                    line = 0;
-                }
-
-                Token::Newline => {
-                    if *is_first {
-                        if open_token == Token::EOF {
-                            self.advance(1);
-                            continue;
-                        } else if line < 2 {
-                            line = 2;
-                            self.push_current()?;
-                            self.advance(1);
-                            continue;
-                        }
-                    }
-                    if line < 2 {
-                        self.push_current()?;
-                        line += 1;
-                    }
-                    self.advance(1);
-                }
-
-                Token::WhiteSpace => {
-                    self.advance(1);
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        if *is_first && open_token != Token::EOF && line == 0 {
-            self.push_line();
-        }
-        *is_first = false;
-        Ok(())
-    }
-
-    fn skip_whitespace(&mut self) -> Result<(), FormatterError> {
-        while self.in_bounds() {
-            match &self.current()?.kind {
-                Token::WhiteSpace | Token::Newline => {
-                    // self.push_current()?;
-                    self.advance(1);
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn skip_just_whitespace(&mut self) -> Result<(), FormatterError> {
-        while self.in_bounds() {
-            match &self.current()?.kind {
-                Token::WhiteSpace => {
-                    // self.push_current()?;
-                    self.advance(1);
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn advance(&mut self, amount: usize) {
-        self.position += amount;
-    }
-
-    fn current(&self) -> Result<&SpannedToken, FormatterError> {
-        match &self.tokens.get(self.position) {
-            Some(value) => { Ok(value) }
-            None => {
-                return Err(FormatterError::UnexpectedEof);
-            }
-        }
-    }
-
-    fn expect(&mut self, token: Token) -> Result<bool, FormatterError> {
-        if self.in_bounds() && self.current()?.kind == token {
-            self.push_current()?;
-
-            self.advance(1); // hey
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    fn push_current(&mut self) -> Result<(), FormatterError> {
-        let lexeme = self.source[self.current()?.span.start..self.current()?.span.end].to_string();
-        self.formatted_tokens.push(FormatToken::new(self.current()?.kind, lexeme));
+    fn push_current(&mut self, cursor: &TokenCursor<'_>) -> Result<(), GrammarError> {
+        let token = cursor.current()?;
+        let lexeme = self.source[token.span.start..token.span.end].to_string();
+        self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
         Ok(())
     }
 
@@ -430,13 +52,248 @@ impl<'a> Formatter<'a> {
     fn push_whitespaces(&mut self, amount: usize) {
         self.formatted_tokens.push(FormatToken::new(Token::WhiteSpace, " ".repeat(amount)));
     }
-    /// Helper to check if current position is within tokens and not EOF
-    fn in_bounds(&self) -> bool {
-        self.position < self.tokens.len() && self.tokens[self.position].kind != Token::EOF
+}
+
+impl GrammarHandler for FormatterHandler {
+    fn begin_block(&mut self, open_token: Token) -> Result<(), GrammarError> {
+        self.blocks.push(BlockFmtState {
+            is_first: true,
+            open_token,
+        });
+        Ok(())
+    }
+
+    fn end_block(&mut self) -> Result<(), GrammarError> {
+        self.blocks.pop();
+        Ok(())
+    }
+
+    fn skip_entry_trivia(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        let block = self.blocks.last_mut().expect("active format block");
+        let open_token = block.open_token;
+        let mut is_first = block.is_first;
+        let mut line = 0;
+
+        while cursor.in_bounds() {
+            match cursor.current()?.kind {
+                Token::Comment => {
+                    let token = cursor.current()?;
+                    let lexeme = self.source[token.span.start..token.span.end].to_string();
+                    self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
+                    cursor.advance(1);
+                    is_first = false;
+                    line = 0;
+                }
+                Token::Newline => {
+                    if is_first {
+                        if open_token == Token::EOF {
+                            cursor.advance(1);
+                            continue;
+                        } else if line < 2 {
+                            line = 2;
+                            let token = cursor.current()?;
+                            let lexeme = self.source[token.span.start..token.span.end].to_string();
+                            self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
+                            cursor.advance(1);
+                            continue;
+                        }
+                    }
+                    if line < 2 {
+                        let token = cursor.current()?;
+                        let lexeme = self.source[token.span.start..token.span.end].to_string();
+                        self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
+                        line += 1;
+                    }
+                    cursor.advance(1);
+                }
+                Token::WhiteSpace => {
+                    cursor.advance(1);
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+
+        if is_first && open_token != Token::EOF && line == 0 {
+            self.formatted_tokens.push(FormatToken::new(Token::WhiteSpace, "\n".to_string()));
+        }
+
+        let block = self.blocks.last_mut().expect("active format block");
+        block.is_first = false;
+        Ok(())
+    }
+
+    fn consume_block_open(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        self.push_current(cursor)?;
+        cursor.advance(1);
+        cursor.skip_just_whitespace()?;
+        if let Some(SpannedToken { kind: Token::Comment, .. }) = cursor.tokens.get(cursor.position) {
+            self.push_whitespaces(1);
+        }
+        Ok(())
+    }
+
+    fn on_before_close(&mut self, _cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        while let Some(token) = self.formatted_tokens.last() {
+            match token.kind {
+                Token::WhiteSpace | Token::Newline => {
+                    self.formatted_tokens.pop();
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn consume_block_close(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        self.push_line();
+        self.push_identation(-1);
+        self.push_current(cursor)?;
+        cursor.advance(1);
+        Ok(())
+    }
+
+    fn on_key(
+        &mut self,
+        cursor: &mut TokenCursor<'_>,
+        _key: &str,
+        _line: usize
+    ) -> Result<(), GrammarError> {
+        self.push_identation(0);
+        self.push_current(cursor)?;
+        Ok(())
+    }
+
+    fn after_key(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        cursor.skip_whitespace()?;
+        self.push_whitespaces(1);
+        Ok(())
+    }
+
+    fn consume_equal(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        self.push_current(cursor)?;
+        self.push_whitespaces(1);
+        cursor.advance(1);
+        cursor.skip_whitespace()?;
+        Ok(())
+    }
+
+    fn enter_struct(&mut self) -> Result<(), GrammarError> {
+        self.identation_level += 1;
+        Ok(())
+    }
+
+    fn exit_struct(&mut self) -> Result<(), GrammarError> {
+        self.identation_level -= 1;
+        Ok(())
+    }
+
+    fn after_entry(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        cursor.skip_just_whitespace()?;
+
+        if let Some(SpannedToken { kind: Token::Comment, .. }) = cursor.tokens.get(cursor.position) {
+            self.push_whitespaces(1);
+        } else if
+            let Some(SpannedToken { kind: Token::Ident, .. }) = cursor.tokens.get(cursor.position)
+        {
+            self.push_line();
+        }
+        Ok(())
+    }
+
+    fn on_string(&mut self, lexeme: &str) -> Result<(), GrammarError> {
+        self.formatted_tokens.push(FormatToken::new(Token::String, lexeme.to_string()));
+        Ok(())
+    }
+
+    fn on_ident(&mut self, lexeme: &str) -> Result<(), GrammarError> {
+        match lexeme {
+            "true" | "false" => {
+                self.formatted_tokens.push(FormatToken::new(Token::Ident, lexeme.to_string()));
+            }
+            _ => {
+                self.formatted_tokens.push(FormatToken::new(Token::String, lexeme.to_string()));
+            }
+        }
+        Ok(())
+    }
+
+    fn on_int(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+        let value = lexeme.parse::<i64>().map_err(|_| GrammarError::InvalidNumber {
+            value: lexeme.to_string(),
+            line,
+        })?;
+        self.formatted_tokens.push(FormatToken::new(Token::Number, value.to_string()));
+        Ok(())
+    }
+
+    fn on_float(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+        let value = lexeme.parse::<f64>().map_err(|_| GrammarError::InvalidNumber {
+            value: lexeme.to_string(),
+            line,
+        })?;
+        self.formatted_tokens.push(FormatToken::new(Token::Number, value.to_string()));
+        Ok(())
+    }
+
+    fn consume_array_open(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        self.push_current(cursor)?;
+        cursor.advance(1);
+        cursor.skip_whitespace()?;
+        Ok(())
+    }
+
+    fn expect_comma(&mut self, cursor: &mut TokenCursor<'_>) -> Result<bool, GrammarError> {
+        if cursor.in_bounds() && cursor.current()?.kind == Token::Comma {
+            self.push_current(cursor)?;
+            cursor.advance(1);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn after_array_comma(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        cursor.skip_whitespace()?;
+        if cursor.current()?.kind == Token::CloseSquare {
+            self.formatted_tokens.pop();
+        } else {
+            self.push_whitespaces(1);
+        }
+        Ok(())
+    }
+
+    fn consume_array_close(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        self.push_current(cursor)?;
+        cursor.advance(1);
+        Ok(())
     }
 }
 
-// Add a free function for old interface compatibility, if desired
-pub fn format<'a>(source: &'a str, tokens: &'a [SpannedToken]) -> Result<List, FormatterError> {
+pub struct Formatter<'a> {
+    source: &'a str,
+    tokens: &'a [SpannedToken],
+}
+
+impl<'a> Formatter<'a> {
+    pub fn new(source: &'a str, tokens: &'a [SpannedToken]) -> Self {
+        Self { source, tokens }
+    }
+
+    pub fn format(self) -> Result<List, GrammarError> {
+        let mut grammar = Grammar::new(
+            self.source,
+            self.tokens,
+            FormatterHandler::new(self.source, self.tokens.len())
+        );
+        grammar.run()?;
+        Ok(grammar.handler.into_list())
+    }
+}
+
+pub fn format<'a>(source: &'a str, tokens: &'a [SpannedToken]) -> Result<List, GrammarError> {
     Formatter::new(source, tokens).format()
 }

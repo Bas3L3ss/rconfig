@@ -1,335 +1,138 @@
 pub mod value;
-pub mod error;
-pub use error::*;
 use std::collections::{ HashMap, hash_map::Entry };
 
 pub use value::*;
 
-use crate::tokenizer::{ SpannedToken, Token };
+use crate::grammar::{ Grammar, GrammarError, GrammarHandler, TokenCursor };
+use crate::tokenizer::SpannedToken;
 
 pub type List = HashMap<String, Value>;
+
+struct ParserHandler {
+    maps: Vec<List>,
+    linemaps: Vec<HashMap<String, usize>>,
+    values: Vec<Value>,
+    array_starts: Vec<usize>,
+}
+
+impl ParserHandler {
+    fn new() -> Self {
+        Self {
+            maps: Vec::new(),
+            linemaps: Vec::new(),
+            values: Vec::new(),
+            array_starts: Vec::new(),
+        }
+    }
+
+    fn into_list(mut self) -> List {
+        self.maps.pop().expect("parser must produce a root map")
+    }
+}
+
+impl GrammarHandler for ParserHandler {
+    fn begin_block(&mut self, _open_token: crate::tokenizer::Token) -> Result<(), GrammarError> {
+        self.maps.push(HashMap::new());
+        self.linemaps.push(HashMap::new());
+        Ok(())
+    }
+
+    fn end_block(&mut self) -> Result<(), GrammarError> {
+        self.linemaps.pop();
+        Ok(())
+    }
+
+    fn register_key(&mut self, key: &str, line: usize) -> Result<(), GrammarError> {
+        let linemap = self.linemaps.last_mut().expect("linemap for active block");
+        match linemap.entry(key.to_string()) {
+            Entry::Vacant(entry) => {
+                entry.insert(line);
+                Ok(())
+            }
+            Entry::Occupied(entry) =>
+                Err(GrammarError::DuplicatedKey {
+                    key: key.to_string(),
+                    line,
+                    first_line: *entry.get(),
+                }),
+        }
+    }
+
+    fn exit_struct(&mut self) -> Result<(), GrammarError> {
+        let map = self.maps.pop().expect("struct map");
+        self.values.push(Value::Struct(map));
+        Ok(())
+    }
+
+    fn finish_entry(&mut self, key: &str, _line: usize) -> Result<(), GrammarError> {
+        let value = self.values.pop().expect("entry value");
+        self.maps.last_mut().expect("active block map").insert(key.to_string(), value);
+        Ok(())
+    }
+
+    fn on_string(&mut self, lexeme: &str) -> Result<(), GrammarError> {
+        self.values.push(Value::String(lexeme.to_string()));
+        Ok(())
+    }
+
+    fn on_ident(&mut self, lexeme: &str) -> Result<(), GrammarError> {
+        match lexeme {
+            "true" => self.values.push(Value::Bool(true)),
+            "false" => self.values.push(Value::Bool(false)),
+            _ => self.values.push(Value::String(lexeme.to_string())),
+        }
+        Ok(())
+    }
+
+    fn on_int(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+        let value = lexeme.parse::<i64>().map_err(|_| GrammarError::InvalidNumber {
+            value: lexeme.to_string(),
+            line,
+        })?;
+        self.values.push(Value::Int(value));
+        Ok(())
+    }
+
+    fn on_float(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+        let value = lexeme.parse::<f64>().map_err(|_| GrammarError::InvalidNumber {
+            value: lexeme.to_string(),
+            line,
+        })?;
+        self.values.push(Value::Float(value));
+        Ok(())
+    }
+
+    fn consume_array_open(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        self.array_starts.push(self.values.len());
+        cursor.advance(1);
+        Ok(())
+    }
+
+    fn finish_array(&mut self) -> Result<(), GrammarError> {
+        let start = self.array_starts.pop().expect("array start marker");
+        let items = self.values.split_off(start);
+        self.values.push(Value::Vec(items));
+        Ok(())
+    }
+}
 
 pub struct Parser<'a> {
     source: &'a str,
     tokens: &'a [SpannedToken],
-    position: usize,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(source: &'a str, tokens: &'a [SpannedToken]) -> Self {
-        Parser {
-            source,
-            tokens,
-            position: 0,
-        }
+        Parser { source, tokens }
     }
 
-    /// Top-level parser. Parses a block or struct body.
-    pub fn parse(&mut self) -> Result<List, ParserError> {
-        self.parse_block(Token::EOF, Token::EOF)
-    }
-
-    /// Generic function for parsing a block struct (delimited), allowing recursion in parse_struct.
-    /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
-    fn parse_block(&mut self, open_token: Token, end_token: Token) -> Result<List, ParserError> {
-        let mut map = HashMap::new(); // WIP: parser
-        let mut linemap = HashMap::new(); // WIP: parser, validator
-
-        if open_token != Token::EOF && self.current()?.kind == open_token {
-            // WIP2: THIS WILL BE A HANDLER
-            self.advance(1);
-        }
-
-        while self.in_bounds() && (end_token == Token::EOF || self.current()?.kind != end_token) {
-            // WIP2: THIS WILL BE A HANDLER
-            self.skip_trivia()?;
-
-            if !self.in_bounds() || (end_token != Token::EOF && self.current()?.kind == end_token) {
-                break;
-            }
-
-            let key = match self.current()?.kind {
-                Token::Ident => {
-                    self.source[self.current()?.span.start..self.current()?.span.end].to_string() // WIP: parser, validator
-                }
-                t => {
-                    return Err(ParserError::UnexpectedToken {
-                        found: t,
-                        expected: Token::Ident,
-                        line: self.current()?.line,
-                    });
-                }
-            };
-            let line = self.current()?.line; // WIP: parser, validator
-
-            self.advance(1);
-
-            // WIP2: THIS WILL BE A HANDLER
-            self.skip_whitespace()?;
-
-            if !self.in_bounds() {
-                return Err(ParserError::UnexpectedToken {
-                    found: Token::EOF,
-                    expected: Token::Equal,
-                    line: self.current()?.line,
-                });
-            }
-
-            match &self.current()?.kind {
-                Token::Equal => {
-                    self.advance(1);
-                    self.skip_whitespace()?;
-
-                    match linemap.entry(key.clone()) {
-                        Entry::Vacant(entry) => {
-                            entry.insert(line); // WIP: parser, validator
-                            map.insert(key, self.expression()?);
-                        }
-                        Entry::Occupied(entry) => {
-                            return Err(ParserError::DuplicatedKey {
-                                key,
-                                line,
-                                first_line: *entry.get(),
-                            });
-                        }
-                    }
-                }
-                Token::OpenBracket => {
-                    match linemap.entry(key.clone()) {
-                        Entry::Vacant(entry) => {
-                            entry.insert(line);
-                            map.insert(key, self.parse_struct()?);
-                        }
-                        Entry::Occupied(entry) => {
-                            return Err(ParserError::DuplicatedKey {
-                                key,
-                                line,
-                                first_line: *entry.get(),
-                            });
-                        }
-                    }
-                }
-
-                t => {
-                    return Err(ParserError::UnexpectedToken {
-                        found: *t,
-                        expected: Token::Equal,
-                        line: self.current()?.line,
-                    });
-                }
-            }
-
-            // WIP2: THIS WILL BE A HANDLER
-            self.skip_whitespace()?;
-        }
-
-        if end_token != Token::EOF {
-            if self.in_bounds() {
-                if self.current()?.kind == end_token {
-                    self.advance(1);
-                } else {
-                    return Err(ParserError::UnterminatedStruct {
-                        line: self.current()?.line,
-                    });
-                }
-            } else {
-                return Err(ParserError::UnterminatedStruct {
-                    line: self.current()?.line,
-                });
-            }
-        }
-
-        Ok(map)
-    }
-
-    fn parse_struct(&mut self) -> Result<Value, ParserError> {
-        Ok(Value::Struct(self.parse_block(Token::OpenBracket, Token::CloseBracket)?))
-    }
-
-    fn expression(&mut self) -> Result<Value, ParserError> {
-        if !self.in_bounds() {
-            return Err(ParserError::UnexpectedEof);
-        }
-        match self.current()?.kind {
-            Token::String => {
-                let value = Value::String(
-                    self.source[self.current()?.span.start..self.current()?.span.end].to_string()
-                );
-                self.advance(1);
-                Ok(value)
-            }
-            Token::Ident => {
-                let ident =
-                    self.source[self.current()?.span.start..self.current()?.span.end].to_string();
-
-                match ident.as_str() {
-                    "true" => {
-                        self.advance(1);
-                        Ok(Value::Bool(true))
-                    }
-                    "false" => {
-                        self.advance(1);
-                        Ok(Value::Bool(false))
-                    }
-                    _ => {
-                        let value = Value::String(ident);
-                        self.advance(1);
-                        Ok(value)
-                    }
-                }
-            }
-            Token::Number => {
-                let token = self.current()?;
-                let line = token.line;
-                let lexeme = &self.source[token.span.start..token.span.end];
-                self.advance(1);
-
-                Ok(
-                    Value::Int(
-                        lexeme.parse::<i64>().map_err(|_| {
-                            ParserError::InvalidNumber {
-                                value: lexeme.to_string(),
-                                line,
-                            }
-                        })?
-                    )
-                )
-            }
-
-            Token::Float => {
-                let token = self.current()?;
-                let line = token.line;
-                let lexeme = &self.source[token.span.start..token.span.end];
-                self.advance(1);
-
-                Ok(
-                    Value::Float(
-                        lexeme.parse::<f64>().map_err(|_| {
-                            ParserError::InvalidNumber {
-                                value: lexeme.to_string(),
-                                line,
-                            }
-                        })?
-                    )
-                )
-            }
-
-            Token::OpenSquare => {
-                let mut vec = vec![];
-
-                self.advance(1);
-
-                while self.in_bounds() && self.current()?.kind != Token::CloseSquare {
-                    self.skip_whitespace()?;
-
-                    if self.current()?.kind == Token::CloseSquare {
-                        break;
-                    }
-
-                    vec.push(self.expression()?);
-
-                    self.skip_whitespace()?;
-
-                    if !self.expect(Token::Comma)? {
-                        self.skip_whitespace()?;
-                        if self.in_bounds() {
-                            match self.tokens.get(self.position) {
-                                Some(
-                                    SpannedToken { kind: Token::CloseSquare, span: _, line: _ },
-                                ) => {
-                                    break;
-                                }
-                                Some(t) => {
-                                    return Err(ParserError::UnexpectedToken {
-                                        found: t.kind,
-                                        expected: Token::Comma,
-                                        line: self.current()?.line,
-                                    });
-                                }
-                                None => {
-                                    return Err(ParserError::UnterminatedArray {
-                                        line: self.current()?.line,
-                                    });
-                                }
-                            }
-                        } else {
-                            return Err(ParserError::UnterminatedArray {
-                                line: self.current()?.line,
-                            });
-                        }
-                    }
-                    self.skip_whitespace()?;
-                }
-                self.advance(1);
-
-                return Ok(Value::Vec(vec));
-            }
-            t => {
-                return Err(ParserError::ExpectedExpression {
-                    found: t,
-                    line: self.current()?.line,
-                });
-            }
-        }
-    }
-
-    fn skip_trivia(&mut self) -> Result<(), ParserError> {
-        while self.in_bounds() {
-            match self.current()?.kind {
-                Token::WhiteSpace | Token::Newline | Token::Comment => {
-                    self.advance(1);
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn skip_whitespace(&mut self) -> Result<(), ParserError> {
-        while self.in_bounds() {
-            match &self.current()?.kind {
-                Token::WhiteSpace | Token::Newline => {
-                    self.advance(1);
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn advance(&mut self, amount: usize) {
-        self.position += amount;
-    }
-
-    fn current(&self) -> Result<&SpannedToken, ParserError> {
-        match &self.tokens.get(self.position) {
-            Some(value) => { Ok(value) }
-            None => {
-                return Err(ParserError::UnexpectedEof);
-            }
-        }
-    }
-
-    fn expect(&mut self, token: Token) -> Result<bool, ParserError> {
-        if self.in_bounds() && self.current()?.kind == token {
-            self.advance(1);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Helper to check if current position is within tokens and not EOF
-    fn in_bounds(&self) -> bool {
-        self.position < self.tokens.len() && self.tokens[self.position].kind != Token::EOF
+    pub fn parse(self) -> Result<List, GrammarError> {
+        let mut grammar = Grammar::new(self.source, self.tokens, ParserHandler::new());
+        grammar.run()?;
+        Ok(grammar.handler.into_list())
     }
 }
 
-// Add a free function for old interface compatibility, if desired
-pub fn parse<'a>(source: &'a str, tokens: &'a [SpannedToken]) -> Result<List, ParserError> {
+pub fn parse<'a>(source: &'a str, tokens: &'a [SpannedToken]) -> Result<List, GrammarError> {
     Parser::new(source, tokens).parse()
 }
