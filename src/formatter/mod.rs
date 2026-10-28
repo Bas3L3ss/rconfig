@@ -24,14 +24,11 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    /// Top-level parser. Parses a block or struct body.
     pub fn format(mut self) -> Result<List, FormatterError> {
         self.format_block(Token::EOF, Token::EOF)?;
         Ok(self.formatted_tokens)
     }
 
-    /// Generic function for parsing a block struct (delimited), allowing recursion in parse_struct.
-    /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
     fn format_block(&mut self, open_token: Token, end_token: Token) -> Result<(), FormatterError> {
         let mut is_first = true;
 

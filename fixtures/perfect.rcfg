@@ -6,9 +6,9 @@ port = 8080
 timeout = 2.5
 
 database { # Inline comment
-    host = "localhost"
-    port = 5432
-    enabled = true
+	host = "localhost"
+	port = 5432
+	enabled = true
 }
 
 features = ["logging", "metrics", "cache"]
