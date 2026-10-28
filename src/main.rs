@@ -1,5 +1,5 @@
 use clap::Parser;
-use rconfig::{ Cli, Commands, commands::{ Error, get, list } };
+use rconfig::{ Cli, Commands, commands::{ Error, format, get, list, validate } };
 
 fn main() {
     match Cli::parse().command {
@@ -14,6 +14,48 @@ fn main() {
                 }
                 Err(Error::Parser(e)) => {
                     eprintln!("Syntax error: {e}");
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Format { path } => {
+            match format(&path) {
+                Ok(_) => {
+                    println!("Format completed");
+                }
+                Err(Error::File(e)) => {
+                    eprintln!("File error: {e}");
+                    std::process::exit(1);
+                }
+                Err(Error::Parser(e)) => {
+                    eprintln!("Syntax error: {e}");
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Validate { path } => {
+            match validate(&path) {
+                Ok(_) => {
+                    println!("The config is valid!");
+                }
+                Err(Error::File(e)) => {
+                    eprintln!("File error: {e}");
+                    std::process::exit(1);
+                }
+                Err(Error::Parser(e)) => {
+                    eprintln!("Syntax error: {e}");
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    eprintln!("Error: {e}");
                     std::process::exit(1);
                 }
             }
@@ -36,6 +78,10 @@ fn main() {
                 }
                 Err(Error::Parser(e)) => {
                     eprintln!("Syntax error: {e}");
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    eprintln!("Error: {e}");
                     std::process::exit(1);
                 }
             }

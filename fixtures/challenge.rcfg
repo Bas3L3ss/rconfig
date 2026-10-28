@@ -23,36 +23,36 @@ empty_string = ""
 features = ["logging", "metrics", "cache"]
 allowed_ports = [80, 443, 8080]
 feature_flags = [true, false, true]
-temperature_values = [-10, .0, 25, -3.5, 2.75]
+temperature_values = [-10, 0, 25, -3.5, 2.75]
 
 # Nested structs
 database {
-    host = "localhost"
-    port = 5432
-    username = "app_user"
-    password = "dev-password"
+	host = "localhost"
+	port = 5432
+	username = "app_user"
+	password = "dev-password"
 
-    connection {
-        max_connections = 20
-        min_connections = 2
-        timeout = 5.5
-    }
+	connection {
+		max_connections = 20
+		min_connections = 2
+		timeout = 5.5
+	}
 }
 
 logging {
-    level = "debug"
-    file = "logs/app.log"
+	level = "debug"
+	file = "logs/app.log"
 
-    rotation {
-        enabled = true
-        max_files = 7
-    }
+	rotation {
+		enabled = true
+		max_files = 7
+	}
 }
 
 # Comments after a struct and between settings
 cache {
-    enabled = true
-    ttl = 300
+	enabled = true
+	ttl = 300
 } # Inline comment after closing brace
 
 # Final setting
