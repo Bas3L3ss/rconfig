@@ -32,7 +32,7 @@ impl<'a> Formatter<'a> {
     /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
     fn format_block(&mut self, open_token: Token, end_token: Token) -> Result<(), FormatterError> {
         if open_token != Token::EOF && self.current()?.kind == open_token {
-            self.formatted_tokens.push(FormatToken::new(self.current()?.kind, String::from("{")));
+            self.push_current()?;
             self.advance(1);
         }
 
