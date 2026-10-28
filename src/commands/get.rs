@@ -1,8 +1,6 @@
-use crate::{ commands::Error, file::{ open }, parser::{ Value, parse }, tokenizer::tokenize };
+use crate::{ commands::{ Error, list }, parser::Value };
 pub fn get(path: &str, search: &str) -> Result<Option<Value>, Error> {
-    let contents = open(path)?; //  d
-    let tokens = tokenize(&contents);
-    let list = parse(&contents, &tokens)?;
+    let list = list(&path)?;
     let keys: Vec<&str> = search.split('.').collect();
 
     if keys.len() == 1 {

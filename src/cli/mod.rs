@@ -15,6 +15,11 @@ pub enum Commands {
         #[arg(help = "Path to the .rcfg file")]
         path: String,
     },
+    /// Format the contents of rconfig file
+    Format {
+        #[arg(help = "Path to the .rcfg file")]
+        path: String,
+    },
     /// Get the specific value from the rconfig file
     Get {
         #[arg(help = "Path to the .rcfg file")]

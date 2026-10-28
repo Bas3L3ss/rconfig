@@ -1,5 +1,5 @@
 use clap::Parser;
-use rconfig::{ Cli, Commands, commands::{ Error, get, list } };
+use rconfig::{ Cli, Commands, commands::{ Error, format, get, list } };
 
 fn main() {
     match Cli::parse().command {
@@ -7,6 +7,21 @@ fn main() {
             match list(&path) {
                 Ok(result) => {
                     println!("{result:#?}");
+                }
+                Err(Error::File(e)) => {
+                    eprintln!("File error: {e}");
+                    std::process::exit(1);
+                }
+                Err(Error::Parser(e)) => {
+                    eprintln!("Syntax error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Format { path } => {
+            match format(&path) {
+                Ok(_) => {
+                    println!("Format completed");
                 }
                 Err(Error::File(e)) => {
                     eprintln!("File error: {e}");
