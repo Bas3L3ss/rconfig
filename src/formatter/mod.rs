@@ -37,8 +37,15 @@ impl<'a> Formatter<'a> {
 
         if open_token != Token::EOF && self.current()?.kind == open_token {
             self.push_current()?;
-            self.push_whitespaces(1);
             self.advance(1);
+            self.skip_just_whitespace()?;
+            if
+                let Some(SpannedToken { kind: Token::Comment, span: _, line: _ }) = self.tokens.get(
+                    self.position
+                )
+            {
+                self.push_whitespaces(1);
+            }
         }
 
         while self.in_bounds() && (end_token == Token::EOF || self.current()?.kind != end_token) {
@@ -107,6 +114,21 @@ impl<'a> Formatter<'a> {
                         line: self.current()?.line,
                     });
                 }
+            }
+            self.skip_just_whitespace()?;
+
+            if
+                let Some(SpannedToken { kind: Token::Comment, span: _, line: _ }) = self.tokens.get(
+                    self.position
+                )
+            {
+                self.push_whitespaces(1);
+            } else if
+                let Some(SpannedToken { kind: Token::Ident, span: _, line: _ }) = self.tokens.get(
+                    self.position
+                )
+            {
+                self.push_line();
             }
         }
 
@@ -226,9 +248,9 @@ impl<'a> Formatter<'a> {
 
                 self.advance(1);
 
+                self.skip_whitespace()?;
                 while self.in_bounds() && self.current()?.kind != Token::CloseSquare {
                     self.skip_whitespace()?;
-
                     if self.current()?.kind == Token::CloseSquare {
                         break;
                     }
@@ -266,6 +288,11 @@ impl<'a> Formatter<'a> {
                     }
 
                     self.skip_whitespace()?;
+                    if self.current()?.kind == Token::CloseSquare {
+                        self.formatted_tokens.pop();
+                    } else {
+                        self.push_whitespaces(1);
+                    }
                 }
                 self.push_current()?;
                 self.advance(1);
@@ -293,11 +320,11 @@ impl<'a> Formatter<'a> {
                     self.push_current()?;
                     self.advance(1);
                     *is_first = false;
+                    line = 0;
                 }
 
                 Token::Newline => {
                     if *is_first {
-                        dbg!("hi");
                         if open_token == Token::EOF {
                             self.advance(1);
                             continue;
@@ -345,6 +372,21 @@ impl<'a> Formatter<'a> {
         Ok(())
     }
 
+    fn skip_just_whitespace(&mut self) -> Result<(), FormatterError> {
+        while self.in_bounds() {
+            match &self.current()?.kind {
+                Token::WhiteSpace => {
+                    // self.push_current()?;
+                    self.advance(1);
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn advance(&mut self, amount: usize) {
         self.position += amount;
     }
@@ -362,7 +404,7 @@ impl<'a> Formatter<'a> {
         if self.in_bounds() && self.current()?.kind == token {
             self.push_current()?;
 
-            self.advance(1);
+            self.advance(1); // hey
             Ok(true)
         } else {
             Ok(false)

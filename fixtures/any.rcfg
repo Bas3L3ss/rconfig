@@ -1,5 +1,59 @@
-database { 
-	host = "localhost"# Inline comment
+#    App config   -- stress test
+app_name = "rconfig"
+debug = true
+port = 8080
+timeout = 2.5
+
+# Users often put spaces everywhere
+owner = "Adrian Pham"
+description = "A config file with awkward formatting, comments, and nested values."
+
+servers = ["localhost", "127.0.0.1", "example.com", "api.example.com"]
+
+empty_list = []
+
+# Nested arrays with inconsistent indentation
+matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+
+mixed_values = ["hello", 42, -7, 3.14159, true, false, ["nested", "array", ["deep", "deeper"]]]
+
+database {
+	host = "localhost"
 	port = 5432
-	enabled = true
+	credentials {
+		username = "admin"
+		password = "not-a-real-password"
+	}
+	pool {
+		min = 2
+		max = 20
+		idle_timeout = 30
+	}
 }
+
+# Comments between nested fields
+logging {
+	level = "debug" # inline comment
+	file = "/var/log/rconfig.log"
+	rotation {
+		enabled = true
+		max_size = 10
+		backups = 5
+	}
+}
+
+features = ["authentication", "caching", "metrics"]
+
+# Long lines should remain readable after formatting
+api {
+	base_url = "https://example.com/api/v1"
+	retry {
+		attempts = 3
+		backoff = 1.5
+		retryable_status_codes = [408, 429, 500, 502, 503, 504]
+	}
+}
+
+# Deliberately inconsistent blank lines
+
+final_flag = true
