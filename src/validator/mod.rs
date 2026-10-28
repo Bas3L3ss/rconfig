@@ -1,9 +1,6 @@
-pub mod value;
 pub mod error;
 pub use error::*;
 use std::collections::{ HashMap, hash_map::Entry };
-
-pub use value::*;
 
 use crate::tokenizer::{ SpannedToken, Token };
 

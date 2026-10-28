@@ -4,5 +4,6 @@ pub mod file;
 pub mod commands;
 pub mod validator;
 pub mod tokenizer;
+pub mod formatter;
 pub mod grammar;
 pub use cli::*;

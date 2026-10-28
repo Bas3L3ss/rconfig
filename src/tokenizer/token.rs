@@ -56,3 +56,15 @@ pub struct SpannedToken {
     pub span: Range<usize>,
     pub line: usize,
 }
+
+#[derive(Debug)]
+pub struct FormatToken {
+    pub kind: Token,
+    pub content: String,
+}
+
+impl FormatToken {
+    pub fn new(kind: Token, content: String) -> Self {
+        Self { kind, content }
+    }
+}

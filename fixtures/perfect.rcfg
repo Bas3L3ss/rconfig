@@ -1,4 +1,4 @@
- # Application configuration
+# Application configuration
 
 app_name = "rconfig-demo"
 debug = true
