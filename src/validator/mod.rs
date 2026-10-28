@@ -5,9 +5,9 @@ use std::collections::{ HashMap, hash_map::Entry };
 use crate::tokenizer::{ SpannedToken, Token };
 
 pub struct Validator<'a> {
-    pub source: &'a str,
-    pub tokens: &'a [SpannedToken],
-    pub position: usize,
+    source: &'a str,
+    tokens: &'a [SpannedToken],
+    position: usize,
 }
 
 impl<'a> Validator<'a> {
@@ -19,13 +19,10 @@ impl<'a> Validator<'a> {
         }
     }
 
-    /// Top-level parser. Parses a block or struct body.
     pub fn validate(&mut self) -> Result<(), ValidatorError> {
         self.validate_block(Token::EOF, Token::EOF)
     }
 
-    /// Generic function for parsing a block struct (delimited), allowing recursion in parse_struct.
-    /// The block ends at the first occurrence of `end_token`, or at EOF if end_token is Token::EOF.
     fn validate_block(
         &mut self,
         open_token: Token,
@@ -75,7 +72,6 @@ impl<'a> Validator<'a> {
                     self.advance(1);
                     self.skip_whitespace()?;
 
-                    // WIP2: THIS WILL BE A HANDLER
                     match linemap.entry(key.clone()) {
                         Entry::Vacant(entry) => {
                             entry.insert(line); // WIP: parser, validator
@@ -91,7 +87,6 @@ impl<'a> Validator<'a> {
                     }
                 }
                 Token::OpenBracket => {
-                    // WIP2: THIS WILL BE A HANDLER
                     match linemap.entry(key.clone()) {
                         Entry::Vacant(entry) => {
                             entry.insert(line);
@@ -116,14 +111,12 @@ impl<'a> Validator<'a> {
                 }
             }
 
-            // WIP2: THIS WILL BE A HANDLER
             self.skip_whitespace()?;
         }
 
         if end_token != Token::EOF {
             if self.in_bounds() {
                 if self.current()?.kind == end_token {
-                    // WIP2: THIS WILL BE A HANDLER
                     self.advance(1);
                 } else {
                     return Err(ValidatorError::UnterminatedStruct {

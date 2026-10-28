@@ -10,9 +10,9 @@ use crate::tokenizer::{ SpannedToken, Token };
 pub type List = HashMap<String, Value>;
 
 pub struct Parser<'a> {
-    pub source: &'a str,
-    pub tokens: &'a [SpannedToken],
-    pub position: usize,
+    source: &'a str,
+    tokens: &'a [SpannedToken],
+    position: usize,
 }
 
 impl<'a> Parser<'a> {
