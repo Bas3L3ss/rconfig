@@ -9,7 +9,7 @@ maintenance_mode = false
 # Integer and float values
 port = 8080
 max_connections = 250
-retry_count = -3
+retry_count = -3	
 temperature_offset = -12.5
 request_timeout = 2.5
 negative_threshold = -0.75
