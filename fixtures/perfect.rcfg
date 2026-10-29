@@ -5,8 +5,10 @@ app_name = "rconfig-demo"
 port = 8080
 timeout = 2.5
 
-# Inline comment
 database {
+	# Inline comment
+	host {
+	}
 	host = "localhost"
 	port = 5432
 	enabled = true

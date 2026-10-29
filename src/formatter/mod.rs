@@ -77,6 +77,7 @@ impl GrammarHandler for FormatterHandler {
         while cursor.in_bounds() {
             match cursor.current()?.kind {
                 Token::Comment => {
+                    self.push_identation(0);
                     let token = cursor.current()?;
                     let lexeme = self.source[token.span.start..token.span.end].to_string();
                     self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
