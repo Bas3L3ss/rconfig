@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as path from "path";
-import { workspace, ExtensionContext } from "vscode";
+import { workspace, ExtensionContext, window } from "vscode";
 
 import {
   LanguageClient,
@@ -17,21 +17,19 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
   // The server is implemented in node
-  const serverModule = context.asAbsolutePath(
-    path.join("server", "out", "server.js"),
+  const serverExecutable = context.asAbsolutePath(
+    path.join("rust-server", "target", "debug", "rust-server"),
   );
 
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used
   const serverOptions: ServerOptions = {
-    run: { module: serverModule, transport: TransportKind.ipc },
-    debug: {
-      module: serverModule,
-      transport: TransportKind.ipc,
-    },
-  };
+    run: { command: serverExecutable, transport: TransportKind.stdio },
+    debug: { command: serverExecutable, transport: TransportKind.stdio },
+  }; // Options to control the language client
 
-  // Options to control the language client
+  const traceChannel = window.createOutputChannel("RCFG");
+
   const clientOptions: LanguageClientOptions = {
     // Register the server for plain text documents
     documentSelector: [{ scheme: "file", language: "rcfg" }],
@@ -39,12 +37,13 @@ export function activate(context: ExtensionContext) {
       // Notify the server about file changes to '.clientrc files contained in the workspace
       fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
     },
+    traceOutputChannel: traceChannel,
   };
 
   // Create the language client and start the client.
   client = new LanguageClient(
-    "languageServerExample",
-    "Language Server Example",
+    "lspforrcfg",
+    "LSP for RCFG",
     serverOptions,
     clientOptions,
   );
