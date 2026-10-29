@@ -197,6 +197,8 @@ impl GrammarHandler for FormatterHandler {
 
         if let Some(SpannedToken { kind: Token::Comment, .. }) = cursor.tokens.get(cursor.position) {
             self.push_whitespaces(1);
+            self.push_current(cursor)?;
+            cursor.advance(1);
         } else if
             let Some(SpannedToken { kind: Token::Ident, .. }) = cursor.tokens.get(cursor.position)
         {

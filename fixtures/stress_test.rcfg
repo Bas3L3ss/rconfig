@@ -33,10 +33,10 @@ database {
 
 # Comments between nested fields
 logging {
-	level = "debug" # inline comment
+	level = "debug" 	# inline comment
 	file = "/var/log/rconfig.log"
 	rotation {
-		enabled = true
+		enabled = true 		#
 		max_size = 10
 		backups = 5
 	}
