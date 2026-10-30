@@ -35,7 +35,11 @@ pub enum GrammarError {
         token: SpannedToken,
     },
 
-    #[error("Unterminated array at line {}: expected `]`", token.line)] UnterminatedArray {
+    #[error(
+        "Unterminated array at line {}: expected `]` found {:?}",
+        token.line,
+        token.kind
+    )] UnterminatedArray {
         token: SpannedToken,
     },
 
@@ -44,7 +48,7 @@ pub enum GrammarError {
     },
 
     #[error("Unexpected end of file")] UnexpectedEof {
-        line: usize,
+        last: SpannedToken,
     },
 
     #[error(

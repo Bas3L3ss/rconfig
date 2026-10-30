@@ -255,6 +255,16 @@ impl GrammarHandler for FormatterHandler {
             Ok(false)
         }
     }
+    fn finish_array(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        if !(cursor.in_bounds() && cursor.current()?.kind == Token::CloseSquare) {
+            return Err(GrammarError::UnterminatedArray { token: cursor.current()?.clone() });
+        }
+
+        self.push_current(cursor)?;
+        cursor.advance(1);
+
+        Ok(())
+    }
 
     fn after_array_comma(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
         cursor.skip_whitespace()?;
@@ -263,12 +273,6 @@ impl GrammarHandler for FormatterHandler {
         } else {
             self.push_whitespaces(1);
         }
-        Ok(())
-    }
-
-    fn consume_array_close(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
-        self.push_current(cursor)?;
-        cursor.advance(1);
         Ok(())
     }
 }

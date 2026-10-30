@@ -26,7 +26,7 @@ impl<'a> TokenCursor<'a> {
             Some(value) => Ok(value),
             None =>
                 Err(GrammarError::UnexpectedEof {
-                    line: self.tokens.last().expect("unreachable").line,
+                    last: self.tokens.last().expect("unreachable").clone(),
                 }),
         }
     }

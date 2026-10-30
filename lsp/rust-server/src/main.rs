@@ -1,4 +1,5 @@
-use rconfig::commands::Error;
+use rconfig::{ commands::Error, file::open, grammar::GrammarError };
+use rust_server::push_diagnostic;
 use tower_lsp_server::{ jsonrpc::Result, ls_types::*, Client, LanguageServer, LspService, Server };
 
 #[derive(Debug)]
@@ -27,22 +28,171 @@ impl LanguageServer for Backend {
         Ok(())
     }
 
-    async fn did_open(&self, params: DidOpenTextDocumentParams) {}
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        let uri = params.text_document.uri;
+        let path = match uri.to_file_path() {
+            Some(path) => path,
+            None => {
+                self.client.show_message(
+                    MessageType::ERROR,
+                    "rconfig: Expected a valid file URI"
+                ).await;
+                return;
+            }
+        };
+
+        let path_str = match path.to_str() {
+            Some(path) => path,
+            None => {
+                self.client.show_message(
+                    MessageType::ERROR,
+                    "rconfig: Invalid file path encoding"
+                ).await;
+                return;
+            }
+        };
+
+        self.client.publish_diagnostics(uri.clone(), Vec::new(), None).await;
+
+        match rconfig::commands::validate(path_str) {
+            Ok(_) => {}
+
+            Err(Error::File(e)) => {
+                self.client.show_message(
+                    MessageType::ERROR,
+                    format!("rconfig: File error: {e}")
+                ).await;
+            }
+
+            Err(Error::Grammar(e)) => {
+                let mut diagnostics = Vec::new();
+
+                match &e {
+                    | GrammarError::UnexpectedToken { found, .. }
+                    | GrammarError::ExpectedExpression { found }
+                    | GrammarError::InvalidNumber { token: found, .. } => {
+                        push_diagnostic(
+                            &mut diagnostics,
+                            &params.text_document.text,
+                            found.span.clone(),
+                            e.to_string()
+                        );
+                    }
+
+                    | GrammarError::DuplicatedKey { token, .. }
+                    | GrammarError::MissingToken { token, .. }
+                    | GrammarError::UnterminatedArray { token }
+                    | GrammarError::UnterminatedStruct { token } => {
+                        push_diagnostic(
+                            &mut diagnostics,
+                            &params.text_document.text,
+                            token.span.clone(),
+                            e.to_string()
+                        );
+                    }
+
+                    GrammarError::UnexpectedEof { last } => {
+                        push_diagnostic(
+                            &mut diagnostics,
+                            &params.text_document.text,
+                            last.span.clone(),
+                            e.to_string()
+                        );
+                    }
+                }
+
+                self.client.publish_diagnostics(uri, diagnostics, None).await;
+            }
+        }
+    }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        let document = params.text_document;
+        let uri = params.text_document.uri;
 
-        let path = document.uri.to_file_path().expect("Expected a file URI").to_path_buf();
+        self.client.publish_diagnostics(uri.clone(), Vec::new(), None).await;
 
-        match rconfig::commands::format(&path.to_str().expect("Should be a valid path")) {
-            Ok(_) => {
-                eprintln!("{path:?}");
+        let path = match uri.to_file_path() {
+            Some(path) => path,
+            None => {
+                self.client.show_message(
+                    MessageType::ERROR,
+                    "rconfig: Expected a valid file URI"
+                ).await;
+                return;
             }
+        };
+
+        let path_str = match path.to_str() {
+            Some(path) => path,
+            None => {
+                self.client.show_message(
+                    MessageType::ERROR,
+                    "rconfig: Invalid file path encoding"
+                ).await;
+                return;
+            }
+        };
+
+        match rconfig::commands::format(path_str) {
+            Ok(_) => {}
+
             Err(Error::File(e)) => {
-                eprintln!("File error: {e}");
+                self.client.show_message(
+                    MessageType::ERROR,
+                    format!("rconfig: File error: {e}")
+                ).await;
             }
+
             Err(Error::Grammar(e)) => {
-                eprintln!("Syntax error: {e}");
+                let source = match open(path_str) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        self.client.show_message(
+                            MessageType::ERROR,
+                            format!("rconfig: File error: {e}")
+                        ).await;
+
+                        return;
+                    }
+                };
+
+                let mut diagnostics = Vec::new();
+
+                match &e {
+                    | GrammarError::UnexpectedToken { found, .. }
+                    | GrammarError::ExpectedExpression { found }
+                    | GrammarError::InvalidNumber { token: found, .. } => {
+                        push_diagnostic(
+                            &mut diagnostics,
+                            &source,
+                            found.span.clone(),
+                            e.to_string()
+                        );
+                    }
+
+                    | GrammarError::DuplicatedKey { token, .. }
+                    | GrammarError::MissingToken { token, .. }
+                    | GrammarError::UnterminatedArray { token }
+                    | GrammarError::UnterminatedStruct { token } => {
+                        push_diagnostic(
+                            &mut diagnostics,
+                            &source,
+                            token.span.clone(),
+                            e.to_string()
+                        );
+                    }
+
+                    GrammarError::UnexpectedEof { last } => {
+                        push_diagnostic(
+                            &mut diagnostics,
+                            &source,
+                            last.span.clone(),
+                            e.to_string()
+                        );
+                    }
+                }
+
+                self.client.publish_diagnostics(uri, diagnostics, None).await;
             }
         }
     }

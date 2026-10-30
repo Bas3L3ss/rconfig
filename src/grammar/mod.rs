@@ -127,7 +127,7 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
     fn expression(&mut self) -> Result<(), GrammarError> {
         if !self.cursor.in_bounds() {
             return Err(GrammarError::UnexpectedEof {
-                line: self.cursor.tokens.last().expect("unreachable").line,
+                last: self.cursor.tokens.last().expect("unreachable").clone(),
             });
         }
 
@@ -205,8 +205,7 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
                     self.handler.after_array_comma(&mut self.cursor)?;
                 }
 
-                self.handler.finish_array()?;
-                self.handler.consume_array_close(&mut self.cursor)?;
+                self.handler.finish_array(&mut self.cursor)?;
                 Ok(())
             }
             _ =>

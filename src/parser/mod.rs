@@ -4,7 +4,7 @@ use std::collections::{ HashMap, hash_map::Entry };
 pub use value::*;
 
 use crate::grammar::{ Grammar, GrammarError, GrammarHandler, TokenCursor };
-use crate::tokenizer::SpannedToken;
+use crate::tokenizer::{ SpannedToken, Token };
 
 pub type List = HashMap<String, Value>;
 
@@ -108,7 +108,11 @@ impl GrammarHandler for ParserHandler {
         Ok(())
     }
 
-    fn finish_array(&mut self) -> Result<(), GrammarError> {
+    fn finish_array(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        if !cursor.expect(Token::CloseSquare)? {
+            return Err(GrammarError::UnterminatedArray { token: cursor.current()?.clone() });
+        }
+
         let start = self.array_starts.pop().expect("array start marker");
         let items = self.values.split_off(start);
         self.values.push(Value::Vec(items));

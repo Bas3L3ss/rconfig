@@ -123,7 +123,11 @@ pub trait GrammarHandler {
     }
 
     /// Called after all array elements are parsed, before consuming `]`.
-    fn finish_array(&mut self) -> Result<(), GrammarError> {
+    fn finish_array(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        if !cursor.expect(Token::CloseSquare)? {
+            return Err(GrammarError::UnterminatedArray { token: cursor.current()?.clone() });
+        }
+
         Ok(())
     }
 

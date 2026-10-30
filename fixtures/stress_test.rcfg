@@ -2,7 +2,7 @@
 app_name = "rconfig"
 debug = true
 port = 8080
-timeout = 2.5
+timeout = "f"
 
 # Users often put spaces everywhere
 owner = "Adrian Pham"
