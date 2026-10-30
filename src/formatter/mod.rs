@@ -90,8 +90,8 @@ impl GrammarHandler for FormatterHandler {
                         if open_token == Token::EOF {
                             cursor.advance(1);
                             continue;
-                        } else if line < 2 {
-                            line = 2;
+                        } else if line < 3 {
+                            line = 3;
                             let token = cursor.current()?;
                             let lexeme = self.source[token.span.start..token.span.end].to_string();
                             self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
@@ -99,7 +99,7 @@ impl GrammarHandler for FormatterHandler {
                             continue;
                         }
                     }
-                    if line < 2 {
+                    if line < 3 {
                         let token = cursor.current()?;
                         let lexeme = self.source[token.span.start..token.span.end].to_string();
                         self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));

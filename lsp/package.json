@@ -21,6 +21,25 @@
   ],
   "main": "./client/out/extension",
   "contributes": {
+    "configurationDefaults": {
+      "editor.tokenColorCustomizations": {
+        "textMateRules": [
+          {
+            "scope": "entity.name.section.rconfig",
+            "settings": {
+              "foreground": "#E5C07B"
+            }
+          }
+        ]
+      }
+    },
+    "grammars": [
+      {
+        "language": "rcfg",
+        "scopeName": "source.rcfg",
+        "path": "./syntaxes/rcfg.tmLanguage.json"
+      }
+    ],
     "languages": [
       {
         "id": "rcfg",
