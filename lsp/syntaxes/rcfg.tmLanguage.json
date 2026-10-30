@@ -1,0 +1,60 @@
+{
+  "scopeName": "source.rcfg",
+  "patterns": [
+    {
+      "name": "comment.line.number-sign.rconfig",
+      "match": "#.*$"
+    },
+    {
+      "name": "string.quoted.double.rconfig",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.rconfig",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "constant.language.boolean.rconfig",
+      "match": "\\b(true|false)\\b"
+    },
+    {
+      "name": "constant.numeric.rconfig",
+      "match": "\\b[+-]?[0-9]+(\\.[0-9]+)?\\b"
+    },
+    {
+      "name": "keyword.operator.assignment.rconfig",
+      "match": "="
+    },
+    {
+      "name": "punctuation.section.array.begin.rconfig",
+      "match": "\\["
+    },
+    {
+      "name": "punctuation.section.array.end.rconfig",
+      "match": "\\]"
+    },
+    {
+      "name": "punctuation.section.struct.begin.rconfig",
+      "match": "\\{"
+    },
+    {
+      "name": "punctuation.section.struct.end.rconfig",
+      "match": "\\}"
+    },
+    {
+      "name": "punctuation.separator.comma.rconfig",
+      "match": ","
+    },
+    {
+      "name": "entity.name.section.rconfig",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\{)"
+    },
+    {
+      "name": "variable.other.key.rconfig",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*=)"
+    }
+  ]
+}

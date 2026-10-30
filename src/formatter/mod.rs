@@ -77,6 +77,7 @@ impl GrammarHandler for FormatterHandler {
         while cursor.in_bounds() {
             match cursor.current()?.kind {
                 Token::Comment => {
+                    self.push_identation(0);
                     let token = cursor.current()?;
                     let lexeme = self.source[token.span.start..token.span.end].to_string();
                     self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
@@ -89,8 +90,8 @@ impl GrammarHandler for FormatterHandler {
                         if open_token == Token::EOF {
                             cursor.advance(1);
                             continue;
-                        } else if line < 2 {
-                            line = 2;
+                        } else if line < 3 {
+                            line = 3;
                             let token = cursor.current()?;
                             let lexeme = self.source[token.span.start..token.span.end].to_string();
                             self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
@@ -98,7 +99,7 @@ impl GrammarHandler for FormatterHandler {
                             continue;
                         }
                     }
-                    if line < 2 {
+                    if line < 3 {
                         let token = cursor.current()?;
                         let lexeme = self.source[token.span.start..token.span.end].to_string();
                         self.formatted_tokens.push(FormatToken::new(token.kind, lexeme));
@@ -128,9 +129,6 @@ impl GrammarHandler for FormatterHandler {
         self.push_current(cursor)?;
         cursor.advance(1);
         cursor.skip_just_whitespace()?;
-        if let Some(SpannedToken { kind: Token::Comment, .. }) = cursor.tokens.get(cursor.position) {
-            self.push_whitespaces(1);
-        }
         Ok(())
     }
 
@@ -196,6 +194,8 @@ impl GrammarHandler for FormatterHandler {
 
         if let Some(SpannedToken { kind: Token::Comment, .. }) = cursor.tokens.get(cursor.position) {
             self.push_whitespaces(1);
+            self.push_current(cursor)?;
+            cursor.advance(1);
         } else if
             let Some(SpannedToken { kind: Token::Ident, .. }) = cursor.tokens.get(cursor.position)
         {
@@ -221,19 +221,19 @@ impl GrammarHandler for FormatterHandler {
         Ok(())
     }
 
-    fn on_int(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+    fn on_int(&mut self, lexeme: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let value = lexeme.parse::<i64>().map_err(|_| GrammarError::InvalidNumber {
             value: lexeme.to_string(),
-            line,
+            token: token.clone(),
         })?;
         self.formatted_tokens.push(FormatToken::new(Token::Number, value.to_string()));
         Ok(())
     }
 
-    fn on_float(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+    fn on_float(&mut self, lexeme: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let value = lexeme.parse::<f64>().map_err(|_| GrammarError::InvalidNumber {
             value: lexeme.to_string(),
-            line,
+            token: token.clone(),
         })?;
         self.formatted_tokens.push(FormatToken::new(Token::Number, value.to_string()));
         Ok(())
@@ -255,6 +255,16 @@ impl GrammarHandler for FormatterHandler {
             Ok(false)
         }
     }
+    fn finish_array(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        if !(cursor.in_bounds() && cursor.current()?.kind == Token::CloseSquare) {
+            return Err(GrammarError::UnterminatedArray { token: cursor.current()?.clone() });
+        }
+
+        self.push_current(cursor)?;
+        cursor.advance(1);
+
+        Ok(())
+    }
 
     fn after_array_comma(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
         cursor.skip_whitespace()?;
@@ -263,12 +273,6 @@ impl GrammarHandler for FormatterHandler {
         } else {
             self.push_whitespaces(1);
         }
-        Ok(())
-    }
-
-    fn consume_array_close(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
-        self.push_current(cursor)?;
-        cursor.advance(1);
         Ok(())
     }
 }

@@ -50,7 +50,7 @@ impl fmt::Debug for Token {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SpannedToken {
     pub kind: Token,
     pub span: Range<usize>,

@@ -4,7 +4,7 @@ use std::collections::{ HashMap, hash_map::Entry };
 pub use value::*;
 
 use crate::grammar::{ Grammar, GrammarError, GrammarHandler, TokenCursor };
-use crate::tokenizer::SpannedToken;
+use crate::tokenizer::{ SpannedToken, Token };
 
 pub type List = HashMap<String, Value>;
 
@@ -42,17 +42,17 @@ impl GrammarHandler for ParserHandler {
         Ok(())
     }
 
-    fn register_key(&mut self, key: &str, line: usize) -> Result<(), GrammarError> {
+    fn register_key(&mut self, key: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let linemap = self.linemaps.last_mut().expect("linemap for active block");
         match linemap.entry(key.to_string()) {
             Entry::Vacant(entry) => {
-                entry.insert(line);
+                entry.insert(token.line);
                 Ok(())
             }
             Entry::Occupied(entry) =>
                 Err(GrammarError::DuplicatedKey {
                     key: key.to_string(),
-                    line,
+                    token: token.clone(),
                     first_line: *entry.get(),
                 }),
         }
@@ -84,19 +84,19 @@ impl GrammarHandler for ParserHandler {
         Ok(())
     }
 
-    fn on_int(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+    fn on_int(&mut self, lexeme: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let value = lexeme.parse::<i64>().map_err(|_| GrammarError::InvalidNumber {
             value: lexeme.to_string(),
-            line,
+            token: token.clone(),
         })?;
         self.values.push(Value::Int(value));
         Ok(())
     }
 
-    fn on_float(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+    fn on_float(&mut self, lexeme: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let value = lexeme.parse::<f64>().map_err(|_| GrammarError::InvalidNumber {
             value: lexeme.to_string(),
-            line,
+            token: token.clone(),
         })?;
         self.values.push(Value::Float(value));
         Ok(())
@@ -108,7 +108,11 @@ impl GrammarHandler for ParserHandler {
         Ok(())
     }
 
-    fn finish_array(&mut self) -> Result<(), GrammarError> {
+    fn finish_array(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
+        if !cursor.expect(Token::CloseSquare)? {
+            return Err(GrammarError::UnterminatedArray { token: cursor.current()?.clone() });
+        }
+
         let start = self.array_starts.pop().expect("array start marker");
         let items = self.values.split_off(start);
         self.values.push(Value::Vec(items));

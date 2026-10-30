@@ -1,4 +1,4 @@
-use crate::tokenizer::{SpannedToken, Token};
+use crate::tokenizer::{ SpannedToken, Token };
 
 use super::GrammarError;
 
@@ -24,7 +24,10 @@ impl<'a> TokenCursor<'a> {
     pub fn current(&self) -> Result<&SpannedToken, GrammarError> {
         match self.tokens.get(self.position) {
             Some(value) => Ok(value),
-            None => Err(GrammarError::UnexpectedEof),
+            None =>
+                Err(GrammarError::UnexpectedEof {
+                    last: self.tokens.last().expect("unreachable").clone(),
+                }),
         }
     }
 
@@ -52,7 +55,9 @@ impl<'a> TokenCursor<'a> {
                 Token::WhiteSpace | Token::Newline | Token::Comment => {
                     self.advance(1);
                 }
-                _ => break,
+                _ => {
+                    break;
+                }
             }
         }
         Ok(())
@@ -64,7 +69,9 @@ impl<'a> TokenCursor<'a> {
                 Token::WhiteSpace | Token::Newline => {
                     self.advance(1);
                 }
-                _ => break,
+                _ => {
+                    break;
+                }
             }
         }
         Ok(())
@@ -76,7 +83,9 @@ impl<'a> TokenCursor<'a> {
                 Token::WhiteSpace => {
                     self.advance(1);
                 }
-                _ => break,
+                _ => {
+                    break;
+                }
             }
         }
         Ok(())

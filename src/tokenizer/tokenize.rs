@@ -10,7 +10,7 @@ pub fn tokenize(source: &str) -> Vec<SpannedToken> {
     while let Some((start, ch)) = chars.next() {
         let token = match ch {
             '#' => tokenize_comment(start, &mut chars, line),
-            '"' => tokenize_string(start, &mut chars, line),
+            '"' => tokenize_string(start, &mut chars, &mut line),
             ch if ch.is_ascii_alphabetic() || ch == '_' =>
                 tokenize_run(
                     start,
@@ -147,7 +147,11 @@ fn tokenize_comment<I>(
     SpannedToken { kind: Comment, span: start..end, line }
 }
 
-fn tokenize_string<I>(start: usize, chars: &mut std::iter::Peekable<I>, line: usize) -> SpannedToken
+fn tokenize_string<I>(
+    start: usize,
+    chars: &mut std::iter::Peekable<I>,
+    line: &mut usize
+) -> SpannedToken
     where I: Iterator<Item = (usize, char)>
 {
     use super::Token::*;
@@ -158,27 +162,47 @@ fn tokenize_string<I>(start: usize, chars: &mut std::iter::Peekable<I>, line: us
         if first_char {
             first_char = false;
             continue;
-        }
-        if escape {
+        } else if escape {
             chars.next();
             end = next_idx + next_ch.len_utf8();
             escape = false;
             continue;
-        }
-        if next_ch == '\\' {
+        } else if next_ch == '\\' {
             escape = true;
             end = next_idx + next_ch.len_utf8();
             chars.next();
             continue;
-        }
-        if next_ch == '"' {
+        } else if next_ch == '\n' {
+            end = next_idx + next_ch.len_utf8();
+            *line += 1;
+            chars.next();
+            continue;
+        } else if next_ch == '\r' {
+            let mut is_complete = false;
+            match chars.peek() {
+                Some(&(_, '\n')) => {
+                    chars.next();
+                    is_complete = true;
+                }
+                _ => {}
+            }
+            *line += 1;
+            if !is_complete {
+                end = next_idx + next_ch.len_utf8();
+            } else {
+                end = next_idx + 2 * next_ch.len_utf8();
+            }
+
+            continue;
+        } else if next_ch == '"' {
             chars.next();
             break;
         }
+
         chars.next();
         end = next_idx + next_ch.len_utf8();
     }
-    SpannedToken { kind: String, span: start + 1..end, line }
+    SpannedToken { kind: String, span: start + 1..end, line: *line }
 }
 
 fn tokenize_run<I, F>(

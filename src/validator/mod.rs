@@ -26,17 +26,17 @@ impl GrammarHandler for ValidatorHandler {
         Ok(())
     }
 
-    fn register_key(&mut self, key: &str, line: usize) -> Result<(), GrammarError> {
+    fn register_key(&mut self, key: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let linemap = self.linemaps.last_mut().expect("linemap for active block");
         match linemap.entry(key.to_string()) {
             Entry::Vacant(entry) => {
-                entry.insert(line);
+                entry.insert(token.line);
                 Ok(())
             }
             Entry::Occupied(entry) =>
                 Err(GrammarError::DuplicatedKey {
                     key: key.to_string(),
-                    line,
+                    token: token.clone(),
                     first_line: *entry.get(),
                 }),
         }
