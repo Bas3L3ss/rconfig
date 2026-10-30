@@ -48,12 +48,11 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
 
             let key = match self.cursor.current()?.kind {
                 Token::Ident => self.cursor.lexeme()?,
-                t => {
+                _ => {
                     return Err(
                         (GrammarError::UnexpectedToken {
-                            found: t,
+                            found: self.cursor.current()?.clone(),
                             expected: Token::Ident,
-                            line: self.cursor.current()?.line,
                         }).into()
                     );
                 }
@@ -68,9 +67,8 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
             if !self.cursor.in_bounds() {
                 return Err(
                     (GrammarError::UnexpectedToken {
-                        found: Token::EOF,
+                        found: self.cursor.tokens.last().expect("unreachable").clone(),
                         expected: Token::Equal,
-                        line: self.cursor.current()?.line,
                     }).into()
                 );
             }
@@ -78,23 +76,22 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
             match self.cursor.current()?.kind {
                 Token::Equal => {
                     self.handler.consume_equal(&mut self.cursor)?;
-                    self.handler.register_key(&key, line)?;
+                    self.handler.register_key(&key, self.cursor.current()?)?;
                     self.expression()?;
                     self.handler.finish_entry(&key, line)?;
                 }
                 Token::OpenBracket => {
-                    self.handler.register_key(&key, line)?;
+                    self.handler.register_key(&key, self.cursor.current()?)?;
                     self.handler.enter_struct()?;
                     self.block(Token::OpenBracket, Token::CloseBracket)?;
                     self.handler.exit_struct()?;
                     self.handler.finish_entry(&key, line)?;
                 }
-                t => {
+                _ => {
                     return Err(
                         (GrammarError::UnexpectedToken {
-                            found: t,
+                            found: self.cursor.current()?.clone(),
                             expected: Token::Equal,
-                            line: self.cursor.current()?.line,
                         }).into()
                     );
                 }
@@ -110,14 +107,14 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
                 } else {
                     return Err(
                         (GrammarError::UnterminatedStruct {
-                            line: self.cursor.current()?.line,
+                            token: self.cursor.current()?.clone(),
                         }).into()
                     );
                 }
             } else {
                 return Err(
                     (GrammarError::UnterminatedStruct {
-                        line: self.cursor.current()?.line,
+                        token: self.cursor.current()?.clone(),
                     }).into()
                 );
             }
@@ -129,7 +126,9 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
 
     fn expression(&mut self) -> Result<(), GrammarError> {
         if !self.cursor.in_bounds() {
-            return Err(GrammarError::UnexpectedEof.into());
+            return Err(GrammarError::UnexpectedEof {
+                line: self.cursor.tokens.last().expect("unreachable").line,
+            });
         }
 
         match self.cursor.current()?.kind {
@@ -146,16 +145,14 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
                 Ok(())
             }
             Token::Number => {
-                let line = self.cursor.current()?.line;
                 let lexeme = self.cursor.lexeme()?;
-                self.handler.on_int(&lexeme, line)?;
+                self.handler.on_int(&lexeme, self.cursor.current()?)?;
                 self.cursor.advance(1);
                 Ok(())
             }
             Token::Float => {
-                let line = self.cursor.current()?.line;
                 let lexeme = self.cursor.lexeme()?;
-                self.handler.on_float(&lexeme, line)?;
+                self.handler.on_float(&lexeme, self.cursor.current()?)?;
                 self.cursor.advance(1);
                 Ok(())
             }
@@ -180,19 +177,18 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
                                 Some(SpannedToken { kind: Token::CloseSquare, .. }) => {
                                     break;
                                 }
-                                Some(t) => {
+                                Some(_) => {
                                     return Err(
                                         (GrammarError::UnexpectedToken {
-                                            found: t.kind,
+                                            found: self.cursor.current()?.clone(),
                                             expected: Token::Comma,
-                                            line: self.cursor.current()?.line,
                                         }).into()
                                     );
                                 }
                                 None => {
                                     return Err(
                                         (GrammarError::UnterminatedArray {
-                                            line: self.cursor.current()?.line,
+                                            token: self.cursor.current()?.clone(),
                                         }).into()
                                     );
                                 }
@@ -200,7 +196,7 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
                         } else {
                             return Err(
                                 (GrammarError::UnterminatedArray {
-                                    line: self.cursor.current()?.line,
+                                    token: self.cursor.current()?.clone(),
                                 }).into()
                             );
                         }
@@ -213,11 +209,10 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
                 self.handler.consume_array_close(&mut self.cursor)?;
                 Ok(())
             }
-            t =>
+            _ =>
                 Err(
                     (GrammarError::ExpectedExpression {
-                        found: t,
-                        line: self.cursor.current()?.line,
+                        found: self.cursor.current()?.clone(),
                     }).into()
                 ),
         }

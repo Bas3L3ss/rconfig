@@ -42,17 +42,17 @@ impl GrammarHandler for ParserHandler {
         Ok(())
     }
 
-    fn register_key(&mut self, key: &str, line: usize) -> Result<(), GrammarError> {
+    fn register_key(&mut self, key: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let linemap = self.linemaps.last_mut().expect("linemap for active block");
         match linemap.entry(key.to_string()) {
             Entry::Vacant(entry) => {
-                entry.insert(line);
+                entry.insert(token.line);
                 Ok(())
             }
             Entry::Occupied(entry) =>
                 Err(GrammarError::DuplicatedKey {
                     key: key.to_string(),
-                    line,
+                    token: token.clone(),
                     first_line: *entry.get(),
                 }),
         }
@@ -84,19 +84,19 @@ impl GrammarHandler for ParserHandler {
         Ok(())
     }
 
-    fn on_int(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+    fn on_int(&mut self, lexeme: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let value = lexeme.parse::<i64>().map_err(|_| GrammarError::InvalidNumber {
             value: lexeme.to_string(),
-            line,
+            token: token.clone(),
         })?;
         self.values.push(Value::Int(value));
         Ok(())
     }
 
-    fn on_float(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+    fn on_float(&mut self, lexeme: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         let value = lexeme.parse::<f64>().map_err(|_| GrammarError::InvalidNumber {
             value: lexeme.to_string(),
-            line,
+            token: token.clone(),
         })?;
         self.values.push(Value::Float(value));
         Ok(())

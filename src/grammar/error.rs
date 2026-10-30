@@ -1,55 +1,57 @@
 use thiserror::Error;
 
-use crate::tokenizer::Token;
+use crate::tokenizer::{ SpannedToken, Token };
 
 #[derive(Debug, Error, PartialEq)]
 pub enum GrammarError {
     #[error(
-        "Unexpected token at line {line}: expected {expected:?} found {found:?}"
-    )]
-    UnexpectedToken {
-        found: Token,
+        "Unexpected token at line {}: expected {expected:?} found {:?}",
+        found.line,
+        found.kind
+    )] UnexpectedToken {
+        found: SpannedToken,
         expected: Token,
-        line: usize,
     },
 
-    #[error("Expected an expression at line {line} found {found:?}")]
-    ExpectedExpression {
-        found: Token,
+    #[error(
+        "Expected an expression at line {} found {:?}",
+        found.line,
+        found.kind
+    )] ExpectedExpression {
+        found: SpannedToken,
+    },
+
+    #[error(
+        "Duplicate key `{key}` at line {}, first defined at line {first_line}",
+        token.line
+    )] DuplicatedKey {
+        key: String,
+        token: SpannedToken,
+        first_line: usize,
+    },
+
+    #[error("Expected {expected:?} at line {}", token.line)] MissingToken {
+        expected: Token,
+        token: SpannedToken,
+    },
+
+    #[error("Unterminated array at line {}: expected `]`", token.line)] UnterminatedArray {
+        token: SpannedToken,
+    },
+
+    #[error("Unterminated struct at line {}: expected `}}`", token.line)] UnterminatedStruct {
+        token: SpannedToken,
+    },
+
+    #[error("Unexpected end of file")] UnexpectedEof {
         line: usize,
     },
 
     #[error(
-        "Duplicate key `{key}` at line {line}, first defined at line {first_line}"
-    )]
-    DuplicatedKey {
-        key: String,
-        line: usize,
-        first_line: usize,
-    },
-
-    #[error("Expected {expected:?} at line {line}")]
-    MissingToken {
-        expected: Token,
-        line: usize,
-    },
-
-    #[error("Unterminated array at line {line}: expected `]`")]
-    UnterminatedArray {
-        line: usize,
-    },
-
-    #[error("Unterminated struct at line {line}: expected `}}`")]
-    UnterminatedStruct {
-        line: usize,
-    },
-
-    #[error("Unexpected end of file")]
-    UnexpectedEof,
-
-    #[error("Invalid number at line {line}: `{value}` is not a valid number")]
-    InvalidNumber {
+        "Invalid number at line {}: `{value}` is not a valid number",
+        token.line
+    )] InvalidNumber {
         value: String,
-        line: usize,
+        token: SpannedToken,
     },
 }

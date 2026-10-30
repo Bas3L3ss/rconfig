@@ -1,4 +1,4 @@
-use crate::tokenizer::Token;
+use crate::tokenizer::{ SpannedToken, Token };
 
 use super::{ GrammarError, TokenCursor };
 
@@ -44,7 +44,7 @@ pub trait GrammarHandler {
     }
 
     /// Register a key before parsing its value. Parser/validator check duplicates.
-    fn register_key(&mut self, _key: &str, _line: usize) -> Result<(), GrammarError> {
+    fn register_key(&mut self, _key: &str, _token: &SpannedToken) -> Result<(), GrammarError> {
         Ok(())
     }
 
@@ -80,21 +80,21 @@ pub trait GrammarHandler {
         Ok(())
     }
 
-    fn on_int(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+    fn on_int(&mut self, lexeme: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         lexeme.parse::<i64>().map_err(|_| {
             GrammarError::InvalidNumber {
                 value: lexeme.to_string(),
-                line,
+                token: token.clone(),
             }
         })?;
         Ok(())
     }
 
-    fn on_float(&mut self, lexeme: &str, line: usize) -> Result<(), GrammarError> {
+    fn on_float(&mut self, lexeme: &str, token: &SpannedToken) -> Result<(), GrammarError> {
         lexeme.parse::<f64>().map_err(|_| {
             GrammarError::InvalidNumber {
                 value: lexeme.to_string(),
-                line,
+                token: token.clone(),
             }
         })?;
         Ok(())
