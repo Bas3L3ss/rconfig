@@ -46,7 +46,8 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
                 break;
             }
 
-            let key = match self.cursor.current()?.kind {
+            let token = self.cursor.current()?.clone();
+            let key = match token.kind {
                 Token::Ident => self.cursor.lexeme()?,
                 _ => {
                     return Err(
@@ -57,7 +58,7 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
                     );
                 }
             };
-            let line = self.cursor.current()?.line;
+            let line = token.line;
 
             self.handler.on_key(&mut self.cursor, &key, line)?;
             self.cursor.advance(1);
@@ -76,7 +77,7 @@ impl<'a, H: GrammarHandler> Grammar<'a, H> {
             match self.cursor.current()?.kind {
                 Token::Equal => {
                     self.handler.consume_equal(&mut self.cursor)?;
-                    self.handler.register_key(&key, self.cursor.current()?)?;
+                    self.handler.register_key(&key, &token)?;
                     self.expression()?;
                     self.handler.finish_entry(&key, line)?;
                 }

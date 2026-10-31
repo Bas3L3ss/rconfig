@@ -22,12 +22,13 @@ pub enum GrammarError {
     },
 
     #[error(
-        "Duplicate key `{key}` at line {}, first defined at line {first_line}",
-        token.line
+        "Duplicate key `{key}` at line {}, first defined at line {}",
+        token.line,
+        first.line
     )] DuplicatedKey {
         key: String,
         token: SpannedToken,
-        first_line: usize,
+        first: SpannedToken,
     },
 
     #[error("Expected {expected:?} at line {}", token.line)] MissingToken {

@@ -2,6 +2,8 @@
 # Tests comments, strings, booleans, numbers, arrays, and nested structs.
 
 app_name = "rconfig-demo"
+
+
 environment = "development"
 debug = true
 maintenance_mode = false
@@ -17,7 +19,7 @@ negative_threshold = -0.75
 # Strings with spaces and punctuation
 database_url = "postgres://localhost:5432/app_db"
 welcome_message = "Hello, developer!"
-empty_string = ""
+
 
 # Arrays
 features = ["logging", "metrics", "cache"]

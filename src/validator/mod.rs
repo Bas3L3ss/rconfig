@@ -4,40 +4,40 @@ use crate::grammar::{ Grammar, GrammarError, GrammarHandler };
 use crate::tokenizer::SpannedToken;
 
 struct ValidatorHandler {
-    linemaps: Vec<HashMap<String, usize>>,
+    token_maps: Vec<HashMap<String, SpannedToken>>,
 }
 
 impl ValidatorHandler {
     fn new() -> Self {
         Self {
-            linemaps: Vec::new(),
+            token_maps: Vec::new(),
         }
     }
 }
 
 impl GrammarHandler for ValidatorHandler {
     fn begin_block(&mut self, _open_token: crate::tokenizer::Token) -> Result<(), GrammarError> {
-        self.linemaps.push(HashMap::new());
+        self.token_maps.push(HashMap::new());
         Ok(())
     }
 
     fn end_block(&mut self) -> Result<(), GrammarError> {
-        self.linemaps.pop();
+        self.token_maps.pop();
         Ok(())
     }
 
     fn register_key(&mut self, key: &str, token: &SpannedToken) -> Result<(), GrammarError> {
-        let linemap = self.linemaps.last_mut().expect("linemap for active block");
+        let linemap = self.token_maps.last_mut().expect("linemap for active block");
         match linemap.entry(key.to_string()) {
             Entry::Vacant(entry) => {
-                entry.insert(token.line);
+                entry.insert(token.clone());
                 Ok(())
             }
             Entry::Occupied(entry) =>
                 Err(GrammarError::DuplicatedKey {
                     key: key.to_string(),
                     token: token.clone(),
-                    first_line: *entry.get(),
+                    first: entry.get().clone(),
                 }),
         }
     }
