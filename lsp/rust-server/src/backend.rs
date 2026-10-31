@@ -90,33 +90,6 @@ impl LanguageServer for Backend {
             }
         }
     }
-
-    async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        let uri = params.text_document.uri;
-
-        self.clear_diagnostics(&uri).await;
-
-        let Some(path) = self.resolve_path(&uri).await else {
-            return;
-        };
-
-        if let Err(error) = rconfig::commands::validate(&path) {
-            match error {
-                Error::File(e) => self.show_file_error(e).await,
-                Error::Grammar(e) => {
-                    let source = match open(&path) {
-                        Ok(source) => source,
-                        Err(e) => {
-                            self.show_file_error(e).await;
-                            return;
-                        }
-                    };
-
-                    self.publish_grammar_error(uri, &source, e).await;
-                }
-            }
-        }
-    }
 }
 
 impl Backend {
@@ -158,7 +131,7 @@ impl Backend {
                     new_diagnostic(
                         source,
                         first.span.clone(),
-                        format!("{key} is already defined here"),
+                        format!("Key: \"{key}\" is already defined here"),
                         DiagnosticSeverity::HINT
                     )
                 ],
