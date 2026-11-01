@@ -1,5 +1,13 @@
+use std::collections::HashMap;
+
 use crate::{ new_diagnostic, to_file_path };
-use rconfig::{ commands::Error, file::open, grammar::GrammarError };
+use rconfig::{
+    commands::Error,
+    file::open,
+    formatter,
+    grammar::GrammarError,
+    tokenizer::{ serialize, tokenize },
+};
 use tower_lsp_server::{ jsonrpc::Result, ls_types::*, Client, LanguageServer };
 
 #[derive(Debug)]
@@ -57,7 +65,7 @@ impl LanguageServer for Backend {
             return;
         };
 
-        if let Err(error) = rconfig::commands::format(&path) {
+        if let Err(error) = self.format(&path, &uri).await {
             match error {
                 Error::File(e) => self.show_file_error(e).await,
                 Error::Grammar(e) => {
@@ -93,6 +101,49 @@ impl LanguageServer for Backend {
 }
 
 impl Backend {
+    async fn format(
+        &self,
+        path: &str,
+        uri: &Uri
+    ) -> std::result::Result<(), rconfig::commands::Error> {
+        let contents = open(path)?;
+
+        let tokens = tokenize(&contents);
+
+        let formatted_tokens = formatter::format(&contents, &tokens)?;
+
+        let formatted_content = serialize(formatted_tokens);
+
+        let edit = TextEdit {
+            range: Range {
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: contents.matches('\n').count() as u32,
+                    character: contents
+                        .rsplit('\n')
+                        .next()
+                        .unwrap_or("")
+                        .encode_utf16()
+                        .count() as u32,
+                },
+            },
+            new_text: formatted_content,
+        };
+
+        let workspace_edit = WorkspaceEdit {
+            changes: Some(HashMap::from([(uri.clone(), vec![edit])])),
+            document_changes: None,
+            change_annotations: None,
+        };
+
+        let _ = self.client.apply_edit(workspace_edit).await;
+
+        Ok(())
+    }
+
     async fn clear_diagnostics(&self, uri: &Uri) {
         self.client.publish_diagnostics(uri.clone(), Vec::new(), None).await;
     }
