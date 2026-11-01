@@ -128,7 +128,7 @@ These components form the foundation of the language tooling and are also used b
 
 The extension integrates the configuration engine into Visual Studio Code, bringing language tooling closer to the development workflow.
 
-**Related project:** [rconfig VS Code Extension](https://github.com/PhamThienHung/rconfig-vscode)
+**Related project:** [rconfig VS Code Extension](https://github.com/Bas3L3ss/rconfig-vscode)
 
 ## Roadmap
 
