@@ -1,35 +1,32 @@
-1. Project overview
+# rconfig
 
-`rconfig` is a lightweight configuration format and parser written entirely in Rust. It lets users define application settings in a human-readable file, load that file into memory, query values, validate configuration, and inspect errors when something goes wrong.
+**A lightweight configuration language and toolkit written in Rust.**
 
-Goal:
-Your goal is not simply to make a parser that works. Your goal is to design a small, idiomatic Rust library that demonstrates why Rust's ownership model, lifetimes, enums, traits, generics, and error handling are useful in a real system.
+`rconfig` is a configuration language implementation and Rust library designed to make configuration files easy to write, parse, validate, inspect, and format.
 
-2. technical
+Built entirely in Rust, the project provides a complete processing pipeline consisting of a lexer, parser, validator, and formatter. It also exposes a public API for integration into external Rust applications.
 
-extension: .rcfg
-components: lexer/tokenizer, parser
+The project additionally serves as the core engine behind the [rconfig VS Code Extension](https://github.com/PhamThienHung/rconfig-vscode), bringing language support and developer tooling into the editor.
 
-tools:
+## Features
 
-- CLI: validate config, get value (inspect), list
+- **Lexer / Tokenizer** – Converts source text into a sequence of tokens while preserving source locations.
+- **Parser** – Transforms tokens into a structured representation of configuration data.
+- **Validator** – Detects invalid configuration structures, duplicate keys, unexpected tokens, and other syntax errors.
+- **Formatter** – Produces consistently formatted configuration files.
+- **CLI** – Provides commands to validate, inspect, list, and format configuration files.
+- **Public Rust API** – Allows external applications and libraries to integrate `rconfig` directly.
+- **VS Code Integration** – Powers the [rconfig VS Code Extension](https://github.com/PhamThienHung/rconfig-vscode).
 
-- Usage:
-  **Command-Line Grammar:**
+## Configuration Format
 
-  ```
-  rconfig <SUBCOMMAND> [ARGS...]
-  ```
+Configuration files use the `.rcfg` extension.
 
-  - `rconfig`: The CLI tool entry point
-  - `<SUBCOMMAND>`: Action to perform, such as `format`, `get`, `list`
-  - `[ARGS...]`: Arguments required by the subcommand
+The format supports common data types, key-value assignments, collections, comments, and recursively nested structures.
 
-- APIs: expose public apis for external rust projects to make use of. Validate config, inspect, list
+### Basic configuration
 
-3. .rcfg design
-
-```
+```rcfg
 # Application configuration
 
 app_name = "rconfig-demo"
@@ -44,12 +41,13 @@ database {
 } # Inline comment
 
 features = ["logging", "metrics", "cache"]
-
 ```
 
-Allow recursive model.
+### Nested structures
 
-```
+Structures can be nested recursively to represent more complex configuration hierarchies.
+
+```rcfg
 app_name = "rconfig"
 
 database {
@@ -63,16 +61,84 @@ database {
         }
     }
 }
-
 ```
 
-4. Cargo
+## CLI
 
-mods: thiserror (error handling), clap (useful cli parsing),
-dev: proptest(randomized test), criterion(performance tracking), tracing (observation)
+The command-line interface provides utilities for working with `.rcfg` files.
 
-5. Future plan:
+### Command structure
 
-- Add support for conversion to JSON, Toml, and XML
-- Add support for color (this can be a VS code extension as well)
--
+```bash
+rconfig <SUBCOMMAND> [ARGS...]
+```
+
+### Available commands
+
+| Command    | Description                                      |
+| ---------- | ------------------------------------------------ |
+| `validate` | Validate a configuration file and report errors. |
+| `get`      | Retrieve a specific configuration value.         |
+| `list`     | List configuration entries.                      |
+| `format`   | Format a configuration file.                     |
+
+For detailed command usage, run:
+
+```bash
+rconfig --help
+```
+
+## Rust Library
+
+`rconfig` is designed to be used as both a standalone CLI application and a reusable Rust library.
+
+Its public API exposes functionality for:
+
+- Parsing and validating configuration files.
+- Loading configuration data into memory.
+- Retrieving values by key or path.
+- Listing configuration entries.
+- Formatting configuration source.
+
+This allows other Rust applications to use the configuration engine without depending on the CLI.
+
+## Architecture
+
+The project is organized around four primary components:
+
+| Component         | Responsibility                                               |
+| ----------------- | ------------------------------------------------------------ |
+| Lexer / Tokenizer | Converts source text into tokens and tracks their locations. |
+| Parser            | Builds structured configuration data from tokens.            |
+| Validator         | Checks configuration correctness and reports diagnostics.    |
+| Formatter         | Produces normalized, consistently formatted source code.     |
+
+These components form the foundation of the language tooling and are also used by the VS Code extension.
+
+## Technology Stack
+
+| Dependency                                      | Purpose                        |
+| ----------------------------------------------- | ------------------------------ |
+| [thiserror](https://crates.io/crates/thiserror) | Structured error handling.     |
+| [clap](https://crates.io/crates/clap)           | Command-line argument parsing. |
+
+## Editor Integration
+
+`rconfig` also provides the underlying functionality for the **rconfig VS Code Extension**.
+
+The extension integrates the configuration engine into Visual Studio Code, bringing language tooling closer to the development workflow.
+
+**Related project:** [rconfig VS Code Extension](https://github.com/PhamThienHung/rconfig-vscode)
+
+## Roadmap
+
+- [ ] Improve parser diagnostics and source-location reporting.
+- [ ] Expand formatter capabilities and formatting stability.
+- [ ] Add syntax highlighting and richer language support.
+- [ ] Support conversion between `.rcfg`, JSON, TOML, and XML.
+- [ ] Improve performance through benchmarking and optimization.
+- [ ] Expand property-based testing and edge-case coverage.
+
+## License
+
+See [LICENSE](LICENSE) for details.
