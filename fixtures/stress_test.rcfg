@@ -33,8 +33,9 @@ database {
 }
 
 # Comments between nested fields
-logging {
-	level = "debug" # inline comment
+logging { 
+# inline comment
+	level = "debug"
 	file = "/var/log/rconfig.log"
 	rotation {
 		enabled = true #
