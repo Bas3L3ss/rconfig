@@ -179,13 +179,11 @@ fn tokenize_string<I>(
             continue;
         } else if next_ch == '\r' {
             let mut is_complete = false;
-            match chars.peek() {
-                Some(&(_, '\n')) => {
-                    chars.next();
-                    is_complete = true;
-                }
-                _ => {}
+            if let Some(&(_, '\n')) = chars.peek() {
+                chars.next();
+                is_complete = true;
             }
+
             *line += 1;
             if !is_complete {
                 end = next_idx + next_ch.len_utf8();

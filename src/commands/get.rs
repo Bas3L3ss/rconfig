@@ -1,6 +1,6 @@
 use crate::{ commands::{ Error, list }, parser::Value };
 pub fn get(path: &str, search: &str) -> Result<Option<Value>, Error> {
-    let list = list(&path)?;
+    let list = list(path)?;
     let keys: Vec<&str> = search.split('.').collect();
 
     if keys.len() == 1 {

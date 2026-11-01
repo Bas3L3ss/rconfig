@@ -8,7 +8,7 @@ use super::{ GrammarError, TokenCursor };
 /// emit tokens or customize trivia.
 pub trait GrammarHandler {
     fn skip_entry_trivia(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
-        cursor.skip_trivia().map_err(Into::into)
+        cursor.skip_trivia()
     }
 
     /// Current token is the block opener (`{`). Consume it (and any post-open trivia).
@@ -40,7 +40,7 @@ pub trait GrammarHandler {
 
     /// After the key token has been consumed.
     fn after_key(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
-        cursor.skip_whitespace().map_err(Into::into)
+        cursor.skip_whitespace()
     }
 
     /// Register a key before parsing its value. Parser/validator check duplicates.
@@ -51,7 +51,7 @@ pub trait GrammarHandler {
     /// Current token is `=`. Consume it and trailing whitespace.
     fn consume_equal(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
         cursor.advance(1);
-        cursor.skip_whitespace().map_err(Into::into)
+        cursor.skip_whitespace()
     }
 
     fn enter_struct(&mut self) -> Result<(), GrammarError> {
@@ -69,7 +69,7 @@ pub trait GrammarHandler {
 
     /// After an entry is fully processed.
     fn after_entry(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
-        cursor.skip_whitespace().map_err(Into::into)
+        cursor.skip_whitespace()
     }
 
     fn on_string(&mut self, _lexeme: &str) -> Result<(), GrammarError> {
@@ -108,12 +108,12 @@ pub trait GrammarHandler {
 
     /// Called when a comma was successfully consumed after an array element.
     fn after_array_comma(&mut self, cursor: &mut TokenCursor<'_>) -> Result<(), GrammarError> {
-        cursor.skip_whitespace().map_err(Into::into)
+        cursor.skip_whitespace()
     }
 
     /// Try to consume a comma. Returns whether one was present.
     fn expect_comma(&mut self, cursor: &mut TokenCursor<'_>) -> Result<bool, GrammarError> {
-        cursor.expect(Token::Comma).map_err(Into::into)
+        cursor.expect(Token::Comma)
     }
 
     /// Current token is `]` (or about to close). Consume the closer.

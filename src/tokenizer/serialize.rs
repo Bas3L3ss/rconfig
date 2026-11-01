@@ -1,6 +1,6 @@
 use crate::tokenizer::{ FormatToken, Token };
 
-pub fn serialize<'a>(tokens: Vec<FormatToken>) -> String {
+pub fn serialize(tokens: Vec<FormatToken>) -> String {
     let mut out = String::new();
 
     for token in tokens {
